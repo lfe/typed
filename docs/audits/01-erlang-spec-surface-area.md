@@ -461,9 +461,18 @@ the thing Dialyzer is designed *not* to do. So:
   will not do it, and emitting more specs will not conjure it.
 
 The honest read: the contract macro can ride the free tier immediately, but the
-ADT thesis lives entirely in the build tier. We should design so the two compose
-(our checker runs first and rejects; Dialyzer runs second as defense in depth)
-rather than hoping specs alone suffice.
+ADT thesis lives entirely in the build tier.
+
+> **LFE-specific correction (added after review).** I originally framed Dialyzer
+> as "defense in depth" behind our checker. That assumption does **not** hold for
+> LFE. Per Duncan: Robert Virding (LFE's creator) invested heavily in making
+> Dialyzer work for LFE, but it **breaks as soon as macros or pure-LFE includes
+> are involved** — and a macro library is nothing *but* macros. So Dialyzer is
+> not a dependable second line for LFE projects. This *removes the safety net*
+> and makes our own checker **load-bearing, not optional**. The free tier is
+> consequently weaker for LFE than for plain Erlang (we still emit specs for docs
+> and for the rare Dialyzer-clean module), but essentially all the real
+> type-safety value must come from the build tier we write ourselves.
 
 ---
 
@@ -508,9 +517,11 @@ to own and re-render in LFE terms:
 
 ## 9. Open questions carried into design
 
-1. **Constructor carrier:** tagged tuples (stable, OTP 26+) vs native records
-   (nominal, runtime-checked, OTP 29 *experimental*) vs pluggable backend.
-   Recommendation leaning toward pluggable, defaulting to tuples now.
+1. **Constructor carrier:** ✅ *Decided.* **Pluggable backend.** Default =
+   **native records (OTP 29+)** — a true, runtime-distinct data type; fallback =
+   **tuple-based** representation for older OTP. One ADT surface over both. A
+   single test suite runs the **full matrix across every supported backend** to
+   prove identical ADT semantics regardless of carrier.
 2. **Equivalence discipline for our ADTs:** structural, or lean on `-nominal`
    for tag distinctness?
 3. **How much free tier to harvest before building the rejecting checker** — and
