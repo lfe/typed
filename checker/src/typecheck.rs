@@ -403,3 +403,146 @@ pub fn check_constructor_field_values(
 
     errors
 }
+
+// C-2: Branch-body typing for case/typed
+
+pub fn check_case_typed_branches(
+    clauses_body: &[SExp],
+    expected: &Type,
+    env: &BodyEnv,
+    type_env: &TypeEnv,
+    file: &str,
+) -> Vec<CheckError> {
+    let mut errors = Vec::new();
+
+    for clause_body in clauses_body {
+        let (got, mut errs) = synth_expr(clause_body, env, type_env, file);
+        errors.append(&mut errs);
+        if !types_compatible(&got, expected) {
+            errors.push(CheckError::Diagnostic {
+                file: file.to_string(),
+                pos: clause_body.position(),
+                message: format!(
+                    "case/typed branch returns `{}`, but expected `{}`",
+                    got, expected
+                ),
+            });
+        }
+    }
+
+    errors
+}
+
+// C-3: case/typed as function body checks against :returns
+
+pub fn check_body_with_case_typed(
+    body: &[SExp],
+    returns_type: &str,
+    env: &BodyEnv,
+    type_env: &TypeEnv,
+    _adt_env: &crate::type_env::TypeEnv,
+    file: &str,
+    body_pos: Position,
+) -> Vec<CheckError> {
+    let expected = parse_type(returns_type);
+
+    if body.is_empty() {
+        return Vec::new();
+    }
+
+    let last = &body[body.len() - 1];
+
+    if is_case_typed_form(last) {
+        if let Ok(tm) = crate::matching::extract_case_typed(last) {
+            let clause_bodies: Vec<SExp> = tm
+                .clauses
+                .iter()
+                .filter_map(|c| c.body.last().cloned())
+                .collect();
+            return check_case_typed_branches(&clause_bodies, &expected, env, type_env, file);
+        }
+    }
+
+    check_body_return(body, returns_type, env, type_env, file, body_pos)
+}
+
+fn is_case_typed_form(expr: &SExp) -> bool {
+    matches!(expr, SExp::List(l)
+        if !l.elements.is_empty()
+            && matches!(&l.elements[0], SExp::Symbol(s) if s.value == "case/typed"))
+}
+
+// C-5: Basic polymorphic contracts (test-only for now)
+
+#[cfg(test)]
+pub struct PolyEnv {
+    bindings: HashMap<String, Type>,
+}
+
+#[cfg(test)]
+impl PolyEnv {
+    pub fn new() -> Self {
+        Self {
+            bindings: HashMap::new(),
+        }
+    }
+
+    pub fn bind_or_check(&mut self, var: &str, ty: &Type) -> Result<(), (String, Type, Type)> {
+        if let Some(existing) = self.bindings.get(var) {
+            if !types_compatible(ty, existing) {
+                return Err((var.to_string(), existing.clone(), ty.clone()));
+            }
+            Ok(())
+        } else {
+            self.bindings.insert(var.to_string(), ty.clone());
+            Ok(())
+        }
+    }
+}
+
+#[cfg(test)]
+pub fn is_type_var(name: &str) -> bool {
+    name.len() == 1 && name.chars().next().is_some_and(|c| c.is_lowercase())
+}
+
+#[cfg(test)]
+pub fn check_poly_contract(
+    args: &[(String, String)],
+    arg_values: &[SExp],
+    _returns: &str,
+    env: &BodyEnv,
+    type_env: &TypeEnv,
+    file: &str,
+    _pos: Position,
+) -> Vec<CheckError> {
+    let mut errors = Vec::new();
+    let mut poly_env = PolyEnv::new();
+
+    for (i, (_param_name, param_type_str)) in args.iter().enumerate() {
+        if !is_type_var(param_type_str) {
+            continue;
+        }
+        if let Some(arg_expr) = arg_values.get(i) {
+            let (arg_ty, mut errs) = synth_expr(arg_expr, env, type_env, file);
+            errors.append(&mut errs);
+            if let Err((var, expected, got)) = poly_env.bind_or_check(param_type_str, &arg_ty) {
+                errors.push(CheckError::Diagnostic {
+                    file: file.to_string(),
+                    pos: arg_expr.position(),
+                    message: format!(
+                        "type variable `{}` bound to `{}` by argument `{}`, but got `{}` here",
+                        var,
+                        expected,
+                        args.iter()
+                            .find(|(_, t)| *t == var)
+                            .map(|(n, _)| n.as_str())
+                            .unwrap_or("?"),
+                        got
+                    ),
+                });
+            }
+        }
+    }
+
+    errors
+}

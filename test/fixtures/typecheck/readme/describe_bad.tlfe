@@ -1,0 +1,23 @@
+;; typecheck/readme/describe_bad.tlfe
+;; C-4: README describe example — wrong version (rejected).
+;; The case/typed is exhaustive but a branch returns the wrong type.
+;; 4
+;; 5
+;; 6
+;; 7
+(defmodule describe_bad
+  (export (describe 1)))
+
+(deftype order-status
+  (repr tagged-tuple)
+  (Pending)
+  (Shipped (tracking binary))
+  (Delivered))
+
+(defun/typed describe
+  :args ((s order-status))
+  :returns atom
+  :body (case/typed s
+          ((Pending) "waiting")
+          ((Shipped t) "in-transit")
+          ((Delivered) "done")))

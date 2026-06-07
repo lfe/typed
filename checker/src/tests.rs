@@ -1196,3 +1196,109 @@ fn m3_10_snapshot_field_value_mismatch() {
         "container.tlfe:10:3: field `val` of constructor `Box` expects type `integer`, got `binary`"
     );
 }
+
+// ============================================================
+// M3.5 tests — Cleanup (C-1..C-5)
+// ============================================================
+
+#[test]
+fn c2_branch_body_typing_rejects_wrong_type() {
+    let bodies = vec![
+        SExp::String(StringLit::new(
+            "hello",
+            crate::error::Position::new(0, 5, 3),
+        )),
+        SExp::Number(Number::new("42", crate::error::Position::new(0, 6, 3))),
+    ];
+    let expected = crate::typecheck::Type::Atom;
+    let env = crate::typecheck::BodyEnv::new();
+    let tenv = TypeEnv::new();
+
+    let errs =
+        crate::typecheck::check_case_typed_branches(&bodies, &expected, &env, &tenv, "test.tlfe");
+    assert_eq!(errs.len(), 2);
+    let msg0 = format!("{}", errs[0]);
+    assert_eq!(
+        msg0,
+        "test.tlfe:5:3: case/typed branch returns `binary`, but expected `atom`"
+    );
+    let msg1 = format!("{}", errs[1]);
+    assert_eq!(
+        msg1,
+        "test.tlfe:6:3: case/typed branch returns `integer`, but expected `atom`"
+    );
+}
+
+#[test]
+fn c2_branch_body_typing_accepts_matching() {
+    let bodies = vec![SExp::List(crate::sexp::types::List::new(
+        vec![
+            SExp::Symbol(Symbol::new("quote", crate::error::Position::new(0, 1, 1))),
+            SExp::Symbol(Symbol::new("ok", crate::error::Position::new(0, 1, 2))),
+        ],
+        crate::error::Position::new(0, 1, 1),
+    ))];
+    let expected = crate::typecheck::Type::Atom;
+    let env = crate::typecheck::BodyEnv::new();
+    let tenv = TypeEnv::new();
+
+    let errs =
+        crate::typecheck::check_case_typed_branches(&bodies, &expected, &env, &tenv, "test.tlfe");
+    assert!(errs.is_empty());
+}
+
+#[test]
+fn c5_poly_identity_accepted() {
+    let env = crate::typecheck::BodyEnv::new();
+    let tenv = TypeEnv::new();
+
+    let args = vec![("x".to_string(), "a".to_string())];
+    let arg_values = vec![SExp::Number(Number::new(
+        "42",
+        crate::error::Position::new(0, 1, 5),
+    ))];
+    let errs = crate::typecheck::check_poly_contract(
+        &args,
+        &arg_values,
+        "a",
+        &env,
+        &tenv,
+        "test.tlfe",
+        crate::error::Position::new(0, 1, 1),
+    );
+    assert!(errs.is_empty());
+}
+
+#[test]
+fn c5_poly_same_var_different_types_rejected() {
+    let env = crate::typecheck::BodyEnv::new();
+    let tenv = TypeEnv::new();
+
+    let args = vec![
+        ("x".to_string(), "a".to_string()),
+        ("y".to_string(), "a".to_string()),
+    ];
+    let dp = crate::error::Position::new(0, 1, 1);
+    let arg_values = vec![
+        SExp::Number(Number::new("42", dp)),
+        SExp::String(StringLit::new(
+            "hello",
+            crate::error::Position::new(0, 1, 10),
+        )),
+    ];
+    let errs = crate::typecheck::check_poly_contract(
+        &args,
+        &arg_values,
+        "a",
+        &env,
+        &tenv,
+        "poly.tlfe",
+        dp,
+    );
+    assert_eq!(errs.len(), 1);
+    let msg = format!("{}", errs[0]);
+    assert_eq!(
+        msg,
+        "poly.tlfe:1:10: type variable `a` bound to `integer` by argument `x`, but got `binary` here"
+    );
+}

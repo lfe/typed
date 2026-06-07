@@ -23,12 +23,17 @@
    (m3_3_well_typed_passes 1)
    (m3_3_return_mismatch_rejected 1)
    ;; M3-4: call arg mismatch
-   (m3_4_arg_mismatch_rejected 1)))
+   (m3_4_arg_mismatch_rejected 1)
+   ;; C-4: README describe demo
+   (c4_describe_good_passes 1)
+   (c4_describe_bad_rejected 1)))
 
 (defun all ()
   '(m3_3_well_typed_passes
     m3_3_return_mismatch_rejected
-    m3_4_arg_mismatch_rejected))
+    m3_4_arg_mismatch_rejected
+    c4_describe_good_passes
+    c4_describe_bad_rejected))
 
 (defun suite () `(#(timetrap #(seconds 60))))
 
@@ -99,6 +104,43 @@
        (case (=/= 'nomatch (string:find output "expected type"))
          ('true 'ok)
          ('false (ct:fail `#(missing_expected_type ,output)))))
+      ('false
+       (ct:fail '#(checker_should_have_rejected))))))
+
+;;; C-4: README describe demo — correct version passes
+
+(defun c4_describe_good_passes (config)
+  (let* ((forms (check-and-decode config "typecheck/readme" "describe_good.tlfe"))
+         (priv-dir (proplists:get_value 'priv_dir config)))
+    (case (typed_driver:compile_forms forms "describe_good.tlfe" priv-dir)
+      (`#(ok describe_good ,beam-bin)
+       (code:purge 'describe_good)
+       (let ((`#(module describe_good)
+              (code:load_binary 'describe_good "describe_good.beam" beam-bin)))
+         (let ((r1 (call 'describe_good 'describe 'pending))
+               (r2 (call 'describe_good 'describe (tuple 'shipped #"TRK123")))
+               (r3 (call 'describe_good 'describe 'delivered)))
+           (case (tuple r1 r2 r3)
+             (#(waiting in-transit done) 'ok)
+             (other (ct:fail `#(wrong_describe_results ,other)))))))
+      (`#(error ,reason)
+       (ct:fail `#(compile_failed ,reason))))))
+
+;;; C-4: README describe demo — wrong version rejected
+
+(defun c4_describe_bad_rejected (config)
+  (let* ((checker-bin (proplists:get_value 'checker_bin config))
+         (fixture-dir (proplists:get_value 'fixture_dir config))
+         (priv-dir    (proplists:get_value 'priv_dir config))
+         (fixture     (filename:join (list fixture-dir "typecheck" "readme" "describe_bad.tlfe")))
+         (eetf-file   (filename:join priv-dir "describe_bad.eetf"))
+         (`#(,exit-code ,output) (run-checker checker-bin fixture eetf-file)))
+    (case (/= exit-code 0)
+      ('true
+       (case (andalso (=/= 'nomatch (string:find output "binary"))
+                      (=/= 'nomatch (string:find output "atom")))
+         ('true 'ok)
+         ('false (ct:fail `#(missing_type_info ,output)))))
       ('false
        (ct:fail '#(checker_should_have_rejected))))))
 

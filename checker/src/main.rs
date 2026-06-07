@@ -116,18 +116,26 @@ fn main() {
                         body_env.register_fun(fn_name, sig.clone());
                     }
 
-                    let type_errors = typecheck::check_body_return(
+                    let source_text = std::fs::read_to_string(input_file).ok();
+                    let type_errors = typecheck::check_body_with_case_typed(
                         &tf.body,
                         &tf.returns,
                         &body_env,
                         &env,
+                        &env,
                         source_name,
                         tf.pos,
                     );
-                    for e in &type_errors {
-                        eprintln!("{}", e);
-                    }
                     if !type_errors.is_empty() {
+                        let mut collector = diagnostic::DiagnosticCollector::new();
+                        for e in &type_errors {
+                            collector.add_check_error(e, source_text.as_deref());
+                        }
+                        if format_json {
+                            eprint!("{}", collector.render_json());
+                        } else {
+                            eprint!("{}", collector.render_human());
+                        }
                         had_error = true;
                     }
 
