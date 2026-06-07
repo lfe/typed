@@ -7,6 +7,7 @@ mod match_lower;
 mod matching;
 mod sexp;
 mod type_env;
+mod typecheck;
 mod typed_surface;
 
 use std::path::Path;
@@ -84,10 +85,52 @@ fn main() {
 
     let ctor_names = env.all_ctor_names();
 
+    // Collect all function signatures for cross-call checking
+    let mut all_fun_sigs: Vec<(String, typecheck::FunSig)> = Vec::new();
+    for form in &pending_forms {
+        if is_defun_typed(form) {
+            if let Ok(tf) = typed_surface::extract_typed_fun(form) {
+                let sig = typecheck::FunSig {
+                    args: tf
+                        .args
+                        .iter()
+                        .map(|(n, t)| (n.clone(), typecheck::parse_type(t)))
+                        .collect(),
+                    returns: typecheck::parse_type(&tf.returns),
+                };
+                all_fun_sigs.push((tf.name.clone(), sig));
+            }
+        }
+    }
+
     for form in &pending_forms {
         if is_defun_typed(form) {
             match typed_surface::extract_typed_fun(form) {
                 Ok(tf) => {
+                    // Type-check the body against the contract
+                    let mut body_env = typecheck::BodyEnv::new();
+                    for (arg_name, arg_type) in &tf.args {
+                        body_env.bind_var(arg_name, typecheck::parse_type(arg_type));
+                    }
+                    for (fn_name, sig) in &all_fun_sigs {
+                        body_env.register_fun(fn_name, sig.clone());
+                    }
+
+                    let type_errors = typecheck::check_body_return(
+                        &tf.body,
+                        &tf.returns,
+                        &body_env,
+                        &env,
+                        source_name,
+                        tf.pos,
+                    );
+                    for e in &type_errors {
+                        eprintln!("{}", e);
+                    }
+                    if !type_errors.is_empty() {
+                        had_error = true;
+                    }
+
                     let body = lower_body_constructions(
                         &tf.body,
                         &env,
@@ -287,6 +330,24 @@ fn lower_expr_constructions(
                         *had_error = true;
                         return expr.clone();
                     }
+                    // Field-value type checking (M3-5)
+                    let body_env = build_body_env_from_args(arg_types);
+                    let field_errors = typecheck::check_constructor_field_values(
+                        &construction.ctor_name,
+                        &construction.fields,
+                        adt_def,
+                        &body_env,
+                        env,
+                        source_name,
+                        construction.pos,
+                    );
+                    for e in &field_errors {
+                        eprintln!("{}", e);
+                    }
+                    if !field_errors.is_empty() {
+                        *had_error = true;
+                        return expr.clone();
+                    }
                     let ctor_def = adt_def.find_ctor(&construction.ctor_name).unwrap();
                     return lower::lower_construction(
                         &construction,
@@ -342,6 +403,14 @@ fn lower_expr_constructions(
     }
 
     expr.clone()
+}
+
+fn build_body_env_from_args(arg_types: &[(String, String)]) -> typecheck::BodyEnv {
+    let mut env = typecheck::BodyEnv::new();
+    for (name, type_str) in arg_types {
+        env.bind_var(name, typecheck::parse_type(type_str));
+    }
+    env
 }
 
 fn is_case_typed(form: &sexp::types::SExp) -> bool {

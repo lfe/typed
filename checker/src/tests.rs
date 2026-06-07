@@ -872,3 +872,224 @@ fn m2_9_lower_case_transparent() {
         _ => panic!("expected case list"),
     }
 }
+
+// ============================================================
+// M3 tests — Contracts & Bidirectional Body Checking
+// ============================================================
+
+#[test]
+fn m3_1_synth_literals() {
+    let env = crate::typecheck::BodyEnv::new();
+    let tenv = TypeEnv::new();
+
+    let (ty, errs) = crate::typecheck::synth_expr(
+        &SExp::Number(Number::new("42", crate::error::Position::new(0, 1, 1))),
+        &env,
+        &tenv,
+        "test.lfe",
+    );
+    assert!(errs.is_empty());
+    assert_eq!(ty, crate::typecheck::Type::Integer);
+
+    let (ty, _) = crate::typecheck::synth_expr(
+        &SExp::String(StringLit::new(
+            "hello",
+            crate::error::Position::new(0, 1, 1),
+        )),
+        &env,
+        &tenv,
+        "test.lfe",
+    );
+    assert_eq!(ty, crate::typecheck::Type::Binary);
+}
+
+#[test]
+fn m3_1_synth_var_from_env() {
+    let mut env = crate::typecheck::BodyEnv::new();
+    env.bind_var("x", crate::typecheck::Type::Integer);
+    let tenv = TypeEnv::new();
+
+    let (ty, errs) = crate::typecheck::synth_expr(
+        &SExp::Symbol(Symbol::new("x", crate::error::Position::new(0, 1, 1))),
+        &env,
+        &tenv,
+        "test.lfe",
+    );
+    assert!(errs.is_empty());
+    assert_eq!(ty, crate::typecheck::Type::Integer);
+}
+
+#[test]
+fn m3_2_synth_typed_call() {
+    let mut env = crate::typecheck::BodyEnv::new();
+    env.register_fun(
+        "greet",
+        crate::typecheck::FunSig {
+            args: vec![("name".to_string(), crate::typecheck::Type::Binary)],
+            returns: crate::typecheck::Type::Binary,
+        },
+    );
+    let tenv = TypeEnv::new();
+
+    let input = r#"(greet "world")"#;
+    let form = Parser::parse_str(input).unwrap();
+    let (ty, errs) = crate::typecheck::synth_expr(&form, &env, &tenv, "test.lfe");
+    assert!(errs.is_empty());
+    assert_eq!(ty, crate::typecheck::Type::Binary);
+}
+
+#[test]
+fn m3_3_body_return_mismatch() {
+    let env = crate::typecheck::BodyEnv::new();
+    let tenv = TypeEnv::new();
+
+    let body = vec![SExp::Number(Number::new(
+        "42",
+        crate::error::Position::new(0, 5, 3),
+    ))];
+    let errors = crate::typecheck::check_body_return(
+        &body,
+        "binary",
+        &env,
+        &tenv,
+        "test.lfe",
+        crate::error::Position::new(0, 1, 1),
+    );
+    assert_eq!(errors.len(), 1);
+    match &errors[0] {
+        crate::error::CheckError::Diagnostic { message, .. } => {
+            assert!(message.contains("integer"), "msg: {message}");
+            assert!(message.contains("binary"), "msg: {message}");
+        }
+        other => panic!("expected Diagnostic, got: {:?}", other),
+    }
+}
+
+#[test]
+fn m3_3_body_return_match() {
+    let env = crate::typecheck::BodyEnv::new();
+    let tenv = TypeEnv::new();
+
+    let body = vec![SExp::Number(Number::new(
+        "42",
+        crate::error::Position::new(0, 1, 1),
+    ))];
+    let errors = crate::typecheck::check_body_return(
+        &body,
+        "integer",
+        &env,
+        &tenv,
+        "test.lfe",
+        crate::error::Position::new(0, 1, 1),
+    );
+    assert!(errors.is_empty());
+}
+
+#[test]
+fn m3_4_call_arg_type_mismatch() {
+    let mut env = crate::typecheck::BodyEnv::new();
+    env.register_fun(
+        "add",
+        crate::typecheck::FunSig {
+            args: vec![
+                ("a".to_string(), crate::typecheck::Type::Integer),
+                ("b".to_string(), crate::typecheck::Type::Integer),
+            ],
+            returns: crate::typecheck::Type::Integer,
+        },
+    );
+    let tenv = TypeEnv::new();
+
+    let input = r#"(add "hello" 2)"#;
+    let form = Parser::parse_str(input).unwrap();
+    let (_, errs) = crate::typecheck::synth_expr(&form, &env, &tenv, "test.lfe");
+    assert_eq!(errs.len(), 1);
+    match &errs[0] {
+        crate::error::CheckError::Diagnostic { message, .. } => {
+            assert!(
+                message.contains("expected type `integer`"),
+                "msg: {message}"
+            );
+            assert!(message.contains("got `binary`"), "msg: {message}");
+        }
+        other => panic!("expected Diagnostic, got: {:?}", other),
+    }
+}
+
+#[test]
+fn m3_4_call_wrong_arity() {
+    let mut env = crate::typecheck::BodyEnv::new();
+    env.register_fun(
+        "add",
+        crate::typecheck::FunSig {
+            args: vec![
+                ("a".to_string(), crate::typecheck::Type::Integer),
+                ("b".to_string(), crate::typecheck::Type::Integer),
+            ],
+            returns: crate::typecheck::Type::Integer,
+        },
+    );
+    let tenv = TypeEnv::new();
+
+    let input = "(add 1)";
+    let form = Parser::parse_str(input).unwrap();
+    let (_, errs) = crate::typecheck::synth_expr(&form, &env, &tenv, "test.lfe");
+    assert_eq!(errs.len(), 1);
+    match &errs[0] {
+        crate::error::CheckError::Diagnostic { message, .. } => {
+            assert!(
+                message.contains("expects 2 argument(s), got 1"),
+                "msg: {message}"
+            );
+        }
+        other => panic!("expected Diagnostic, got: {:?}", other),
+    }
+}
+
+#[test]
+fn m3_8_prelude_arithmetic() {
+    let env = crate::typecheck::BodyEnv::new();
+    let tenv = TypeEnv::new();
+
+    let input = "(+ 1 2)";
+    let form = Parser::parse_str(input).unwrap();
+    let (ty, errs) = crate::typecheck::synth_expr(&form, &env, &tenv, "test.lfe");
+    assert!(errs.is_empty());
+    assert_eq!(ty, crate::typecheck::Type::Number);
+}
+
+#[test]
+fn m3_8_prelude_comparison() {
+    let env = crate::typecheck::BodyEnv::new();
+    let tenv = TypeEnv::new();
+
+    let input = "(> 1 2)";
+    let form = Parser::parse_str(input).unwrap();
+    let (ty, errs) = crate::typecheck::synth_expr(&form, &env, &tenv, "test.lfe");
+    assert!(errs.is_empty());
+    assert_eq!(ty, crate::typecheck::Type::Boolean);
+}
+
+#[test]
+fn m3_9_dynamic_unknown_call() {
+    let env = crate::typecheck::BodyEnv::new();
+    let tenv = TypeEnv::new();
+
+    let input = "(unknown-fn 1 2)";
+    let form = Parser::parse_str(input).unwrap();
+    let (ty, errs) = crate::typecheck::synth_expr(&form, &env, &tenv, "test.lfe");
+    assert!(errs.is_empty());
+    assert_eq!(ty, crate::typecheck::Type::Dynamic);
+}
+
+#[test]
+fn m3_9_dynamic_compatible_with_any() {
+    assert!(crate::typecheck::types_compatible(
+        &crate::typecheck::Type::Dynamic,
+        &crate::typecheck::Type::Integer,
+    ));
+    assert!(crate::typecheck::types_compatible(
+        &crate::typecheck::Type::Integer,
+        &crate::typecheck::Type::Dynamic,
+    ));
+}

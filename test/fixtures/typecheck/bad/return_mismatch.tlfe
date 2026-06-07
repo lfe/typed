@@ -1,0 +1,14 @@
+;; typecheck/bad/return_mismatch.tlfe
+;; M3-3: body returns integer but contract says binary.
+;; defun/typed on line 8.
+;; 4
+;; 5
+;; 6
+;; 7
+(defmodule return_mismatch
+  (export (oops 0)))
+
+(defun/typed oops
+  :args ()
+  :returns binary
+  :body 42)

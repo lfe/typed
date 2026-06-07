@@ -34,5 +34,5 @@
 ;; The defun/typed is on line 35.
 (defun/typed greet
   :args ((name binary))
-  :returns binary
+  :returns list
   :body (list "Hello " name))

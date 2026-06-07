@@ -5,7 +5,6 @@ use crate::sexp::types::*;
 pub struct TypedFun {
     pub name: String,
     pub args: Vec<(String, String)>,
-    #[cfg_attr(not(test), expect(dead_code, reason = "used for type checking in M1"))]
     pub returns: String,
     pub body: Vec<SExp>,
     pub pos: Position,

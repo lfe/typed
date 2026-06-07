@@ -1,0 +1,14 @@
+;; typecheck/good/well_typed.tlfe
+;; M3-3: well-typed function (body matches :returns).
+;; 3
+;; 4
+;; 5
+;; 6
+;; 7
+(defmodule well_typed
+  (export (double 1)))
+
+(defun/typed double
+  :args ((x integer))
+  :returns integer
+  :body (+ x x))
