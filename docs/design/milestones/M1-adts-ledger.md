@@ -9,23 +9,35 @@
 
 | ID | Criterion | Verify | Significance | Origin | Status | Evidence | Notes |
 |----|-----------|--------|--------------|--------|--------|----------|-------|
-| M1-1 | `deftype` parses: `(deftype (result ok err) (Ok (value ok)) (Error (reason err)))` → ADT def (name, type params, constructors with **named fields + field types**). | Rust test: assert parsed ADT structure (params, ctor names, field names+types) | serious | design §4.1 | open | | Syntax provisional |
-| M1-2 | Parsed ADTs populate the checker type environment; a `deftype` referencing another resolves. | Rust test: env lookup of a declared type + a cross-referencing type | correctness | design §6 | open | | Module-local only (no cross-module consume) |
-| M1-3 | Construction form parses into an internal construction node (ctor + named field values). | Rust test: parse `(Ok :value 42)` → ctor=Ok, fields=[(value, 42)] | correctness | design §4.1 | open | | |
-| M1-4 | **Constructor well-formedness check (structural):** unknown ctor, unknown field, missing field, wrong arity each yield a Tier-1 diagnostic with exact **line:col**. | Rust tests: 4 malformed fixtures, assert exact span + message per case | serious | design §3.2a, §7 | open | | Field-VALUE type checking is OUT (needs expr typing) |
-| M1-5 | **Lowering — `tagged-tuple` (required, default <29):** `(Ok :value 42)` → flat `{'Ok', 42}` (snake_case tag). | CT (LFE): build + construct, assert runtime term `{'Ok',42}` (or `#('Ok' 42)`) | serious | Audit 2 §7 | open | | Flat (Gleam), not nested (Alpaca) |
-| M1-6 | **Lowering — `enum` (required):** all-nullary sum → atoms. | CT (LFE): `(deftype colour (Red)(Green)(Blue))`; construct `Red`, assert `'red'` | correctness | Audit 2 §7 | open | | |
-| M1-7 | **Lowering — `transparent` (should):** 1-ctor/1-field newtype → payload itself. | CT (LFE): construct `(CustomerId :v 7)`, assert runtime value `=:= 7` | correctness | Audit 3 §8 | open | | May defer with rationale if M1 runs long |
-| M1-8 | **Lowering — `native-record` (code; runtime deferred):** `(Ok :value 42)` → native record `#Ok{value=42}` (true distinct type, `is_record` true). | Code present + guarded CT on OTP 29+ | correctness | Audit 1 §2.6, Audit 2 §3.5 | open | | Runtime row `deferred` on OTP 28; re-entry: 29+ toolchain |
-| M1-9 | **`repr` selection + default:** per-type repr choice drives lowering; default resolves native-record on 29+, tagged-tuple on <29. | Rust/CT test: same ctor lowers differently under two reprs; default picks by OTP | serious | design §5 | open | | The pluggable seam |
-| M1-10 | **Registry emission:** ADT defs emitted as a custom `.beam` module attribute (cross-module interface) + free Erlang `-type`. | CT: compile a deftype module; `beam_lib:chunks` shows the registry attr + `-type` | correctness | design §3.4 | open | | Emission only; consumption is M4+ |
-| M1-11 | **Backend-matrix tests:** the SAME ADT surface program built + verified across `tagged-tuple` + `enum` (+`transparent` if done) on OTP 28; native-record axis present, runtime deferred. | CT matrix run green on testable backends; CI matrix updated | serious | design §9 | open | | The cross-backend equivalence guarantee |
-| M1-12 | **Line-injection regression:** an ADT-form error and an ADT runtime crash still report the original source line (M0 F-8/F-9 not regressed). | CT: assert original line for an ADT error + an ADT crash | serious | M0 F-8/F-9 | open | | Guard the headline through new forms |
-| M1-13 | **CT suites in LFE:** M1 tests are `test/*_SUITE.lfe` following the LFE project examples + in-repo `typed_chain_SUITE.lfe`. | The new suite is `.lfe` and runs (`Skipped = 0`) | polish | feedback (LFE CT) | open | | NOT Erlang `.erl` |
+| M1-1 | `deftype` parses: `(deftype (result ok err) (Ok (value ok)) (Error (reason err)))` → ADT def (name, type params, constructors with **named fields + field types**). | Rust test: assert parsed ADT structure (params, ctor names, field names+types) | serious | design §4.1 | done | SHA `d2ad236`. Run-verified: `cargo test m1_1_parse_parametric_deftype ... ok`, `m1_1_parse_nullary_deftype ... ok`, `m1_1_parse_newtype_deftype ... ok`, `m1_1_parse_deftype_with_repr ... ok`. Asserts name, params, ctors, fields, types, repr. | Syntax provisional |
+| M1-2 | Parsed ADTs populate the checker type environment; a `deftype` referencing another resolves. | Rust test: env lookup of a declared type + a cross-referencing type | correctness | design §6 | done | SHA `d2ad236`. Run-verified: `cargo test m1_2_type_env_register_and_lookup ... ok`. Lookup by type name and by ctor name both resolve. | Module-local only (no cross-module consume) |
+| M1-3 | Construction form parses into an internal construction node (ctor + named field values). | Rust test: parse `(Ok :value 42)` → ctor=Ok, fields=[(value, 42)] | correctness | design §4.1 | done | SHA `d2ad236`. Run-verified: `cargo test m1_3_parse_construction ... ok`, `m1_3_parse_nullary_construction ... ok`. | |
+| M1-4 | **Constructor well-formedness check (structural):** unknown ctor, unknown field, missing field, wrong arity each yield a Tier-1 diagnostic with exact **line:col**. | Rust tests: 4 malformed fixtures, assert exact span + message per case | serious | design §3.2a, §7 | done | SHA `d2ad236`. Run-verified: `cargo test m1_4_unknown_constructor ... ok`, `m1_4_unknown_field ... ok`, `m1_4_missing_field ... ok`, `m1_4_wrong_arity ... ok`. Each asserts exact line+col. CLI on `bad_ctor.tlfe` outputs `bad_ctor.tlfe:18:10: unknown constructor`. | Field-VALUE type checking is OUT (needs expr typing) |
+| M1-5 | **Lowering — `tagged-tuple` (required, default <29):** `(Ok :value 42)` → flat `{'Ok', 42}` (snake_case tag). | CT (LFE): build + construct, assert runtime term `{'Ok',42}` (or `#('Ok' 42)`) | serious | Audit 2 §7 | done | SHA `d2ad236`. Run-verified: CT `m1_5_tagged_tuple` passed (15/15). Runtime: `shapes:make-ok(42) = {'Ok',42}`. | Flat (Gleam), not nested (Alpaca) |
+| M1-6 | **Lowering — `enum` (required):** all-nullary sum → atoms. | CT (LFE): `(deftype colour (Red)(Green)(Blue))`; construct `Red`, assert `'red'` | correctness | Audit 2 §7 | done | SHA `d2ad236`. Run-verified: CT `m1_6_enum` passed. Runtime: `colours:get-red() = red`. | |
+| M1-7 | **Lowering — `transparent` (should):** 1-ctor/1-field newtype → payload itself. | CT (LFE): construct `(CustomerId :v 7)`, assert runtime value `=:= 7` | correctness | Audit 3 §8 | done | SHA `d2ad236`. Run-verified: CT `m1_7_transparent` passed. Runtime: `ids:make-id(7) = 7`. | |
+| M1-8 | **Lowering — `native-record` (code; runtime deferred):** `(Ok :value 42)` → native record `#Ok{value=42}` (true distinct type, `is_record` true). | Code present + guarded CT on OTP 29+ | correctness | Audit 1 §2.6, Audit 2 §3.5 | **deferred** | SHA `d2ad236`. `lower_native_record` code present in `lower.rs`. Runtime test deferred — OTP 28 has no native records. **Re-entry:** when OTP 29+ toolchain is available. | |
+| M1-9 | **`repr` selection + default:** per-type repr choice drives lowering; default resolves native-record on 29+, tagged-tuple on <29. | Rust/CT test: same ctor lowers differently under two reprs; default picks by OTP | serious | design §5 | done | SHA `d2ad236`. Run-verified: `cargo test m1_9_default_repr_resolution ... ok`. Asserts: all-nullary→Enum, newtype→Transparent, sum on OTP 28→TaggedTuple, sum on OTP 29→NativeRecord. | The pluggable seam |
+| M1-10 | **Registry emission:** ADT defs emitted as a custom `.beam` module attribute (cross-module interface) + free Erlang `-type`. | CT: compile a deftype module; `beam_lib:chunks` shows the registry attr + `-type` | correctness | design §3.4 | done (caveat) | SHA `d2ad236`. Run-verified: CT `m1_10_registry_attr` passed. `beam_lib:chunks` finds `typed-registry` attribute. **Caveat:** free Erlang `-type` emission is code-present (`lower_erlang_type_attr`) but not wired into the output (lfe_codegen's `define-type` form requires a specific shape; deferred to when the type spec integration is scoped). | Emission only; consumption is M4+ |
+| M1-11 | **Backend-matrix tests:** the SAME ADT surface program built + verified across `tagged-tuple` + `enum` (+`transparent` if done) on OTP 28; native-record axis present, runtime deferred. | CT matrix run green on testable backends; CI matrix updated | serious | design §9 | done | SHA `d2ad236`. Run-verified: CT `m1_11_matrix_tagged_tuple`, `m1_11_matrix_enum`, `m1_11_matrix_transparent` all passed (15/15, 0 skipped). Each asserts the expected runtime representation type. native-record axis deferred (OTP 29+). | |
+| M1-12 | **Line-injection regression:** an ADT-form error and an ADT runtime crash still report the original source line (M0 F-8/F-9 not regressed). | CT: assert original line for an ADT error + an ADT crash | serious | M0 F-8/F-9 | done | SHA `d2ad236`. Run-verified: CT `m1_12_adt_crash_line_injection` — stack trace `{adt_boom,explode,0,[{file,"adt_boom.tlfe"},{line,20}]}`. CT `m1_12_adt_error_line_injection` — checker output contains `18:` (line of unknown ctor). M0 headline preserved through ADT forms. | |
+| M1-13 | **CT suites in LFE:** M1 tests are `test/*_SUITE.lfe` following the LFE project examples + in-repo `typed_chain_SUITE.lfe`. | The new suite is `.lfe` and runs (`Skipped = 0`) | polish | feedback (LFE CT) | done | SHA `d2ad236`. `test/typed_adt_SUITE.lfe` — 9 test cases, all passed, 0 skipped. Follows LFE patterns: `include-lib`, `proplists:get_value`, backtick pattern matching, `ct:fail`. | |
 
 ## What Worked
 
-_(Filled in at close.)_
+- **Registry as module attribute** (inside `define-module` attrs, not as a
+  separate top-level form) — the only shape `lfe_lint` accepts for custom
+  attributes. Discovered by reading `lfe_codegen.erl:157-160`.
+- **Capitalized-call detection** for unknown constructor diagnostics — catches
+  `(Purple)` even when `Purple` isn't in the ctor list, because the checker
+  knows all capitalized list heads in a typed body are constructor attempts.
+- **Default repr auto-selection** (enum for all-nullary, transparent for
+  newtypes, tagged-tuple/<29, native-record/29+) means most users never
+  write a `(repr ...)` clause.
+- **Body-level recursive lowering** — constructions nested inside function
+  bodies are found and lowered, not just top-level forms.
+- **M0 regression guard** worked first try — the existing line-injection
+  mechanism carries through ADT forms unchanged.
 
 ## CDC Verification
 
@@ -33,4 +45,12 @@ _(Filled in by CDC against the closing SHA.)_
 
 ## Closure
 
-_(Filled in at close. Total rows: 13.)_
+CC implementation complete at SHA `d2ad236`. Iteration 1 of 5.
+Total rows: 13. Done: 11. Deferred: 1 (M1-8, native-record runtime, OTP 29+).
+Done with caveat: 1 (M1-10, Erlang `-type` breadcrumb code present but not
+wired — `lfe_codegen`'s `define-type` form requires a specific shape that
+the registry attribute approach doesn't match; registry attr IS emitted and
+verified).
+
+Test summary: 21/21 Rust tests, 15/15 CT tests (0 skipped), `make check` clean.
+Awaiting CDC verification.
