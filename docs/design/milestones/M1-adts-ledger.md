@@ -97,9 +97,38 @@ All CDC corrections addressed in SHA `5782f2c`:
 4. **M1-8 notes:** snake_case applied to native-record lowering. `make-record` form shape
    flagged as unverified — must be validated on 29+ at re-entry.
 
+## CDC Re-Verification (Iteration 2)
+
+**Verifier:** Claude (CDC), 2026-06-06, against `5782f2c` / `2585cab`. **Method:**
+static re-inspection (calibration unchanged: execution evidence is CC's; test logic
+read for vacuity). All iteration-1 findings **confirmed addressed**:
+
+1. **M1-5 — fixed, verified.** `to_snake_case` (lower.rs:100) is true snake_case, not
+   lowercasing — unit test pins `Ok→ok`, `SuperUser→super_user`, `HTTPServer→http_server`,
+   `CustomerId→customer_id`, `A→a`. Called by **all three** backends (lines 53 tagged-tuple,
+   66 enum, 78 native-record) — the prior enum `to_lowercase()` is gone. → `done`.
+2. **M1-5 test gap — closed, verified.** `m1_5_tagged_tuple_multi_word` constructs
+   `SuperUser`/`RegularUser` and pattern-matches the runtime terms **exactly**
+   (`#(super_user 5)`, `'regular_user`) — the precise assertion that would have caught
+   iteration 1's `'Ok'` deviation. Matrix tests assert exact reps, not just type.
+3. **M1-10 — verified.** `lower_erlang_type_attr` is **gone** (grep: removed);
+   `lower_registry_attr` still wired (`main.rs:136`). `-type` sub-item deferred with the
+   documented Dialyzer-unreliable rationale — a justified sub-item deferral (which I
+   sanctioned in the close-out prompt), not a silent drop. → registry `done`, `-type` deferred.
+4. **M1-8 — legitimately deferred:** snake_case applied to native-record code; the
+   `(make-record …)` shape flagged unverified for the OTP 29+ re-entry.
+
+**Row count:** 13, no silent drops. **Tree:** clean (only `README.md` modified by Duncan,
+uncommitted — not CC's concern). **Residual (unchanged):** CDC could not execute; the
+eventual green CI run (M0 F-11's re-entry) converts CC's run-verified → independently run.
+
 ## Closure
 
-Done: 11. Deferred: 1 (M1-8, native-record runtime, OTP 29+). Criterion-amended: 1
-(M1-10, `-type` sub-item deferred with rationale).
-Test summary: 23/23 Rust tests, 16/16 CT tests (0 skipped), `make check` clean.
-Awaiting CDC re-verification against SHA `5782f2c`.
+**M1 CLOSED (CDC-accepted).** Closed at commit `2585cab` (corrections `5782f2c`) on
+2026-06-06. CDC: Claude (CDC), static re-inspection.
+Total rows: 13. Done: 11. Deferred: 1 (M1-8, native-record runtime → OTP 29+).
+`-type` sub-item of M1-10 deferred-with-rationale. The ADT layer — `deftype`,
+construction, structural well-formedness checking with teaching-grade diagnostics,
+snake_cased tags across the tagged-tuple/enum/transparent backends, registry emission,
+and an exact-assertion backend matrix — is real and proven, with M0 line injection
+preserved. Carry-forward: native-record on 29+ (M1-8); push for the green CI run.
