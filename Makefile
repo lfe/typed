@@ -12,10 +12,10 @@ compile:
 
 clean:
 	@$(REBAR) clean
-	@rm -rf _build logs erl_crash.dump doc
+	@rm -rf _build logs erl_crash.dump doc test/*.beam src/*.beam ebin
 
 test:
-	@$(REBAR) do eunit --cover, ct --cover, proper -c
+	@$(REBAR) do eunit --cover, ct --cover
 	@$(REBAR) cover
 
 dialyzer:

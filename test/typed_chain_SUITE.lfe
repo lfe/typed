@@ -140,34 +140,25 @@
                          ipath '("."))))
     (case (lfe_codegen:module forms ci)
       (`#(ok f9bmod ,ast ,_warns)
-       (let ((bad-func
-              `#(function ,injected-line bad_fn 1
-                 (#(clause ,injected-line
-                    (#(var ,injected-line X))
-                    ()
-                    (#(var ,injected-line Unbound)
-                     #(var ,injected-line X)))))))
-         (let* ((ast1 (++ ast (list bad-func)))
-                (comp-opts `(#(source ,orig-file) return binary debug_info)))
-           (case (compile:forms ast1 comp-opts)
-             (`#(error ,errors ,_warnings)
-              (let ((`((,file ,file-errors)) errors))
-                (case file
-                  ((= (binary) orig-file)
-                   ;; file matches — now check the line
-                   (case (lists:keyfind injected-line 1 file-errors)
-                     (`#(,injected-line erl_lint #(unbound_var Unbound)) 'ok)
-                     (other (ct:fail `#(wrong_error ,other)))))
-                  ;; file is a list (string), compare directly
-                  (_ (case (== file orig-file)
-                       ('true
-                        (case (lists:keyfind injected-line 1 file-errors)
-                          (`#(,injected-line erl_lint #(unbound_var Unbound)) 'ok)
-                          (other (ct:fail `#(wrong_error ,other)))))
-                       ('false
-                        (ct:fail `#(wrong_file ,file))))))))
-             (other
-              (ct:fail `#(expected_compile_error ,other)))))))
+       (let* ((bad-func
+               `#(function ,injected-line bad_fn 1
+                  (#(clause ,injected-line
+                     (#(var ,injected-line X))
+                     ()
+                     (#(var ,injected-line Unbound)
+                      #(var ,injected-line X))))))
+              (ast1 (++ ast (list bad-func)))
+              (comp-opts `(#(source ,orig-file) return binary debug_info)))
+         (case (compile:forms ast1 comp-opts)
+           (`#(error (#(,file ,file-errors)) ,_warnings)
+            (let ((found (lists:keyfind injected-line 1 file-errors)))
+              (if (and (== file orig-file)
+                       (== found (tuple injected-line 'erl_lint
+                                        (tuple 'unbound_var 'Unbound))))
+                'ok
+                (ct:fail `#(wrong_file_or_error #(file ,file) #(found ,found))))))
+           (other
+            (ct:fail `#(expected_compile_error ,other))))))
       (other
        (ct:fail `#(codegen_failed ,other))))))
 
