@@ -1,12 +1,8 @@
-<!-- Logo: drop the LiffyBot-with-type-theory-mug art here, e.g.
-     <p align="center"><img src="priv/images/liffybot-typed.png" width="300"></p> -->
-<p align="center"><em>(LiffyBot logo coming soon — type theory on the mug)</em></p>
-
 # lfe/typed
 
 [![Build Status][gh-actions-badge]][gh-actions]
 [![LFE Versions][lfe-badge]][lfe]
-[![Erlang Versions][erlang -adge]][version]
+[![Erlang Versions][erlang-badge]][version]
 [![Tags][github-tags-badge]][github-tags]
 
 *An experiment in a statically typed LFE with algebraic data types*
@@ -209,10 +205,11 @@ Apache-2.0. See [LICENSE](LICENSE). Package name: `lfe_typed`.
 
 [logo]: priv/images/Typed-LiffyBot.png
 [logo-large]: priv/images/Typed-LiffyBot-large.png
-[gh-actions-badge]: https://github.com/lfe/typed/actions/workflows/cicd.yml/badge.svg
+[gh-actions-badge]: https://github.com/lfe/typed/actions/workflows/ci.yml/badge.svg
 [gh-actions]: https://github.com/lfe/typed/actions
 [lfe]: https://github.com/rvirding/lfe
 [lfe-badge]: https://img.shields.io/badge/lfe-2.2+-blue.svg
-[version]: https://github.com/lfe/typed/blob/master/.github/workflows/ci.yml
+[erlang-badge]: https://img.shields.io/badge/erlang-26+-blue.svg
+[version]: https://github.com/lfe/typed/blob/main/.github/workflows/ci.yml
 [github-tags]: https://github.com/lfe/typed/tags
 [github-tags-badge]: https://img.shields.io/github/tag/lfe/typed.svg
