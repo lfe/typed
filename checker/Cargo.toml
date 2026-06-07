@@ -1,0 +1,8 @@
+[package]
+name = "typed-check"
+version = "0.1.0"
+edition = "2021"
+description = "Shape checker and lowering tool for typed LFE"
+
+[dependencies]
+thiserror = "2"
