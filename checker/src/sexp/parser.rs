@@ -8,6 +8,10 @@ pub struct Parser {
     current: usize,
 }
 
+#[expect(
+    dead_code,
+    reason = "public API; parse_str/parse_file/parse used in tests"
+)]
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
         Self { tokens, current: 0 }
@@ -21,9 +25,11 @@ impl Parser {
     }
 
     pub fn parse_file<P: AsRef<Path>>(path: P) -> Result<SExp> {
-        let content = std::fs::read_to_string(path.as_ref()).map_err(|e| {
-            ParseError::FileReadError { path: path.as_ref().to_path_buf(), source: e }
-        })?;
+        let content =
+            std::fs::read_to_string(path.as_ref()).map_err(|e| ParseError::FileReadError {
+                path: path.as_ref().to_path_buf(),
+                source: e,
+            })?;
         Self::parse_str(&content)
     }
 
@@ -39,9 +45,11 @@ impl Parser {
     }
 
     pub fn parse_all_file<P: AsRef<Path>>(path: P) -> Result<Vec<SExp>> {
-        let content = std::fs::read_to_string(path.as_ref()).map_err(|e| {
-            ParseError::FileReadError { path: path.as_ref().to_path_buf(), source: e }
-        })?;
+        let content =
+            std::fs::read_to_string(path.as_ref()).map_err(|e| ParseError::FileReadError {
+                path: path.as_ref().to_path_buf(),
+                source: e,
+            })?;
         Self::parse_all_str(&content)
     }
 

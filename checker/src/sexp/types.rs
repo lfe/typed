@@ -47,25 +47,37 @@ pub struct List {
 
 impl Symbol {
     pub fn new(value: impl Into<String>, pos: Position) -> Self {
-        Self { value: value.into(), pos }
+        Self {
+            value: value.into(),
+            pos,
+        }
     }
 }
 
 impl Keyword {
     pub fn new(name: impl Into<String>, pos: Position) -> Self {
-        Self { name: name.into(), pos }
+        Self {
+            name: name.into(),
+            pos,
+        }
     }
 }
 
 impl StringLit {
     pub fn new(value: impl Into<String>, pos: Position) -> Self {
-        Self { value: value.into(), pos }
+        Self {
+            value: value.into(),
+            pos,
+        }
     }
 }
 
 impl Number {
     pub fn new(value: impl Into<String>, pos: Position) -> Self {
-        Self { value: value.into(), pos }
+        Self {
+            value: value.into(),
+            pos,
+        }
     }
 }
 

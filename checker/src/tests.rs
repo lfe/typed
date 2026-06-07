@@ -1,8 +1,8 @@
-use crate::sexp::Parser;
-use crate::sexp::types::*;
-use crate::typed_surface;
-use crate::lower;
 use crate::eetf;
+use crate::lower;
+use crate::sexp::types::*;
+use crate::sexp::Parser;
+use crate::typed_surface;
 
 #[test]
 fn f2_parse_fixture_line_col() {
@@ -67,7 +67,8 @@ fn f4_malformed_diagnostic_has_line_col() {
             assert_eq!(pos.column, 1, "diagnostic column");
             assert!(
                 message.contains("missing") || message.contains("requires"),
-                "message was: {}", message
+                "message was: {}",
+                message
             );
         }
     }
@@ -142,10 +143,7 @@ fn f6_eetf_encodes() {
 
     let module_form = lower::lower_module_def("hello", &[("greet".to_string(), 1)]);
 
-    let pairs = vec![
-        (module_form, 1usize),
-        (lowered.module_form, lowered.line),
-    ];
+    let pairs = vec![(module_form, 1usize), (lowered.module_form, lowered.line)];
 
     let bytes = eetf::encode_forms(&pairs);
     assert!(bytes.len() > 10);

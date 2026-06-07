@@ -30,7 +30,13 @@ pub struct Lexer {
 
 impl Lexer {
     pub fn new(input: &str) -> Self {
-        Self { input: input.chars().collect(), current: 0, offset: 0, line: 1, column: 1 }
+        Self {
+            input: input.chars().collect(),
+            current: 0,
+            offset: 0,
+            line: 1,
+            column: 1,
+        }
     }
 
     pub fn tokenize(&mut self) -> Result<Vec<Token>, LexError> {
@@ -57,15 +63,27 @@ impl Lexer {
         match ch {
             '(' => {
                 self.advance();
-                Ok(Token { typ: TokenType::LParen, lexeme: "(".to_string(), pos })
+                Ok(Token {
+                    typ: TokenType::LParen,
+                    lexeme: "(".to_string(),
+                    pos,
+                })
             }
             ')' => {
                 self.advance();
-                Ok(Token { typ: TokenType::RParen, lexeme: ")".to_string(), pos })
+                Ok(Token {
+                    typ: TokenType::RParen,
+                    lexeme: ")".to_string(),
+                    pos,
+                })
             }
             '\'' => {
                 self.advance();
-                Ok(Token { typ: TokenType::Quote, lexeme: "'".to_string(), pos })
+                Ok(Token {
+                    typ: TokenType::Quote,
+                    lexeme: "'".to_string(),
+                    pos,
+                })
             }
             ':' => self.read_keyword(),
             '"' => self.read_string(),
@@ -91,7 +109,11 @@ impl Lexer {
             }
         }
         let lexeme: String = self.input[start..self.current].iter().collect();
-        Ok(Token { typ: TokenType::Keyword, lexeme, pos })
+        Ok(Token {
+            typ: TokenType::Keyword,
+            lexeme,
+            pos,
+        })
     }
 
     fn read_string(&mut self) -> Result<Token, LexError> {
@@ -109,14 +131,30 @@ impl Lexer {
                     self.advance();
                     match self.current_char() {
                         None => return Err(LexError::UnterminatedString { pos }),
-                        Some('n') => { value.push('\n'); self.advance(); }
-                        Some('t') => { value.push('\t'); self.advance(); }
-                        Some('r') => { value.push('\r'); self.advance(); }
-                        Some('\\') => { value.push('\\'); self.advance(); }
-                        Some('"') => { value.push('"'); self.advance(); }
+                        Some('n') => {
+                            value.push('\n');
+                            self.advance();
+                        }
+                        Some('t') => {
+                            value.push('\t');
+                            self.advance();
+                        }
+                        Some('r') => {
+                            value.push('\r');
+                            self.advance();
+                        }
+                        Some('\\') => {
+                            value.push('\\');
+                            self.advance();
+                        }
+                        Some('"') => {
+                            value.push('"');
+                            self.advance();
+                        }
                         Some(ch) => {
                             return Err(LexError::InvalidEscape {
-                                ch, pos: self.current_position(),
+                                ch,
+                                pos: self.current_position(),
                             });
                         }
                     }
@@ -127,7 +165,11 @@ impl Lexer {
                 }
             }
         }
-        Ok(Token { typ: TokenType::String, lexeme: value, pos })
+        Ok(Token {
+            typ: TokenType::String,
+            lexeme: value,
+            pos,
+        })
     }
 
     fn read_number(&mut self) -> Result<Token, LexError> {
@@ -144,7 +186,11 @@ impl Lexer {
             }
         }
         let lexeme: String = self.input[start..self.current].iter().collect();
-        Ok(Token { typ: TokenType::Number, lexeme, pos })
+        Ok(Token {
+            typ: TokenType::Number,
+            lexeme,
+            pos,
+        })
     }
 
     fn read_symbol(&mut self) -> Result<Token, LexError> {
@@ -158,18 +204,26 @@ impl Lexer {
             }
         }
         let lexeme: String = self.input[start..self.current].iter().collect();
-        let typ = if lexeme == "nil" { TokenType::Nil } else { TokenType::Symbol };
+        let typ = if lexeme == "nil" {
+            TokenType::Nil
+        } else {
+            TokenType::Symbol
+        };
         Ok(Token { typ, lexeme, pos })
     }
 
     fn skip_whitespace_and_comments(&mut self) {
         loop {
             match self.current_char() {
-                Some(ch) if ch.is_whitespace() => { self.advance(); }
+                Some(ch) if ch.is_whitespace() => {
+                    self.advance();
+                }
                 Some(';') => {
                     while let Some(ch) = self.current_char() {
                         self.advance();
-                        if ch == '\n' { break; }
+                        if ch == '\n' {
+                            break;
+                        }
                     }
                 }
                 _ => break,
@@ -179,12 +233,18 @@ impl Lexer {
 
     fn is_symbol_start(&self, ch: char) -> bool {
         ch.is_alphabetic()
-            || matches!(ch, '_' | '-' | '+' | '*' | '/' | '=' | '<' | '>' | '!' | '?' | '&')
+            || matches!(
+                ch,
+                '_' | '-' | '+' | '*' | '/' | '=' | '<' | '>' | '!' | '?' | '&'
+            )
     }
 
     fn is_symbol_char(&self, ch: char) -> bool {
         ch.is_alphanumeric()
-            || matches!(ch, '_' | '-' | '+' | '*' | '/' | '=' | '<' | '>' | '!' | '?' | '&' | '\'' | '.')
+            || matches!(
+                ch,
+                '_' | '-' | '+' | '*' | '/' | '=' | '<' | '>' | '!' | '?' | '&' | '\'' | '.'
+            )
     }
 
     fn current_char(&self) -> Option<char> {

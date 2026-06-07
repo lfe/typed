@@ -5,6 +5,7 @@ use crate::sexp::types::*;
 pub struct TypedFun {
     pub name: String,
     pub args: Vec<(String, String)>,
+    #[cfg_attr(not(test), expect(dead_code, reason = "used for type checking in M1"))]
     pub returns: String,
     pub body: Vec<SExp>,
     pub pos: Position,
@@ -14,6 +15,7 @@ pub struct TypedFun {
 pub struct ModuleDef {
     pub name: String,
     pub exports: Vec<(String, usize)>,
+    #[expect(dead_code, reason = "will be used for diagnostics in M1")]
     pub pos: Position,
 }
 
@@ -56,7 +58,11 @@ pub fn extract_module_def(form: &SExp) -> Option<ModuleDef> {
             }
         }
     }
-    Some(ModuleDef { name, exports, pos: head.pos })
+    Some(ModuleDef {
+        name,
+        exports,
+        pos: head.pos,
+    })
 }
 
 pub fn extract_typed_fun(form: &SExp) -> Result<TypedFun, CheckError> {
@@ -215,7 +221,9 @@ pub fn extract_typed_fun(form: &SExp) -> Result<TypedFun, CheckError> {
                 return Err(CheckError::Diagnostic {
                     file: String::new(),
                     pos: other.position(),
-                    message: format!("unexpected element in defun/typed; expected :args, :returns, or :body"),
+                    message:
+                        "unexpected element in defun/typed; expected :args, :returns, or :body"
+                            .to_string(),
                 });
             }
         }
@@ -244,7 +252,13 @@ pub fn extract_typed_fun(form: &SExp) -> Result<TypedFun, CheckError> {
         });
     }
 
-    Ok(TypedFun { name, args, returns, body, pos: list.pos })
+    Ok(TypedFun {
+        name,
+        args,
+        returns,
+        body,
+        pos: list.pos,
+    })
 }
 
 fn format_sexp_flat(sexp: &SExp) -> String {
@@ -258,11 +272,5 @@ fn format_sexp_flat(sexp: &SExp) -> String {
             let inner: Vec<String> = l.elements.iter().map(format_sexp_flat).collect();
             format!("({})", inner.join(" "))
         }
-    }
-}
-
-impl HasPosition for &SExp {
-    fn position(&self) -> Position {
-        (*self).position()
     }
 }

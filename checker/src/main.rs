@@ -15,7 +15,9 @@ fn main() {
     }
 
     let input_file = &args[1];
-    let output_file = args.iter().position(|a| a == "--output")
+    let output_file = args
+        .iter()
+        .position(|a| a == "--output")
         .and_then(|i| args.get(i + 1))
         .map(|s| s.as_str());
 

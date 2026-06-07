@@ -1,6 +1,6 @@
+use crate::error::Position;
 use crate::sexp::types::*;
 use crate::typed_surface::TypedFun;
-use crate::error::Position;
 
 #[derive(Debug)]
 pub struct LoweredForm {
@@ -54,13 +54,9 @@ pub fn lower_module_def(name: &str, exports: &[(String, usize)]) -> SExp {
         )));
     }
 
-    let export_attr = SExp::List(List::new(
-        vec![
-            vec![SExp::Symbol(Symbol::new("export", dummy_pos()))],
-            export_pairs,
-        ].concat(),
-        dummy_pos(),
-    ));
+    let mut export_elems = vec![SExp::Symbol(Symbol::new("export", dummy_pos()))];
+    export_elems.extend(export_pairs);
+    let export_attr = SExp::List(List::new(export_elems, dummy_pos()));
 
     let attrs = SExp::List(List::new(vec![export_attr], dummy_pos()));
     let metas = SExp::List(List::new(vec![], dummy_pos()));

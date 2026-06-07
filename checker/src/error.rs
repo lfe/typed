@@ -10,7 +10,11 @@ pub struct Position {
 
 impl Position {
     pub fn new(offset: usize, line: usize, column: usize) -> Self {
-        Self { offset, line, column }
+        Self {
+            offset,
+            line,
+            column,
+        }
     }
 }
 
@@ -36,12 +40,17 @@ pub enum LexError {
 }
 
 #[derive(Debug, thiserror::Error)]
+#[expect(dead_code, reason = "variants reserved for M1 parser improvements")]
 pub enum ParseError {
     #[error("unexpected token {token:?} at {pos}")]
     UnexpectedToken { token: String, pos: Position },
 
     #[error("expected {expected}, found {found} at {pos}")]
-    Expected { expected: String, found: String, pos: Position },
+    Expected {
+        expected: String,
+        found: String,
+        pos: Position,
+    },
 
     #[error("unterminated list at {pos}")]
     UnterminatedList { pos: Position },

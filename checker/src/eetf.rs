@@ -7,7 +7,6 @@ const INTEGER_TAG: u8 = 98;
 const ATOM_UTF8_TAG: u8 = 118;
 const SMALL_TUPLE_TAG: u8 = 104;
 const NIL_TAG: u8 = 106;
-const STRING_TAG: u8 = 107;
 const LIST_TAG: u8 = 108;
 const BINARY_TAG: u8 = 109;
 
@@ -66,18 +65,6 @@ fn encode_sexp(sexp: &SExp, buf: &mut Vec<u8>) {
     }
 }
 
-fn is_quote_form(elems: &[SExp]) -> bool {
-    elems.len() == 2 && matches!(&elems[0], SExp::Symbol(s) if s.value == "quote")
-}
-
-fn encode_atom_from_quote(sexp: &SExp, buf: &mut Vec<u8>) {
-    match sexp {
-        SExp::Symbol(s) => encode_atom(&s.value, buf),
-        SExp::Number(n) => encode_atom(&n.value, buf),
-        _ => encode_sexp(sexp, buf),
-    }
-}
-
 fn encode_atom(name: &str, buf: &mut Vec<u8>) {
     let bytes = name.as_bytes();
     buf.push(ATOM_UTF8_TAG);
@@ -87,12 +74,9 @@ fn encode_atom(name: &str, buf: &mut Vec<u8>) {
 }
 
 fn encode_integer(val: i64, buf: &mut Vec<u8>) {
-    if val >= 0 && val <= 255 {
+    if (0..=255).contains(&val) {
         buf.push(SMALL_INTEGER_TAG);
         buf.push(val as u8);
-    } else if val >= i32::MIN as i64 && val <= i32::MAX as i64 {
-        buf.push(INTEGER_TAG);
-        buf.extend_from_slice(&(val as i32).to_be_bytes());
     } else {
         buf.push(INTEGER_TAG);
         buf.extend_from_slice(&(val as i32).to_be_bytes());
