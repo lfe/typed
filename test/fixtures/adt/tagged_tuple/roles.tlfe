@@ -1,0 +1,26 @@
+;; Line 1 - adt/tagged_tuple/roles.tlfe
+;; Fixture for M1-5 snake_case: multi-word constructor names.
+;; SuperUser → super_user, RegularUser → regular_user.
+;; 4
+;; 5
+;; 6
+;; 7
+;; 8
+;; 9
+(defmodule roles
+  (export (make-super 1) (make-regular 0)))
+
+(deftype role
+  (repr tagged-tuple)
+  (SuperUser (level integer))
+  (RegularUser))
+
+(defun/typed make-super
+  :args ((n integer))
+  :returns role
+  :body (SuperUser :level n))
+
+(defun/typed make-regular
+  :args ()
+  :returns role
+  :body (RegularUser))

@@ -27,13 +27,14 @@
    (end_per_suite 1)
    ;; M1-5: tagged-tuple
    (m1_5_tagged_tuple 1)
+   (m1_5_tagged_tuple_multi_word 1)
    ;; M1-6: enum
    (m1_6_enum 1)
    ;; M1-7: transparent
    (m1_7_transparent 1)
    ;; M1-10: registry emission
    (m1_10_registry_attr 1)
-   ;; M1-11: backend matrix
+   ;; M1-11: backend matrix (exact representation assertions)
    (m1_11_matrix_tagged_tuple 1)
    (m1_11_matrix_enum 1)
    (m1_11_matrix_transparent 1)
@@ -43,6 +44,7 @@
 
 (defun all ()
   '(m1_5_tagged_tuple
+    m1_5_tagged_tuple_multi_word
     m1_6_enum
     m1_7_transparent
     m1_10_registry_attr
@@ -85,9 +87,29 @@
        (code:purge 'shapes)
        (let ((`#(module shapes) (code:load_binary 'shapes "shapes.beam" beam-bin)))
          (let ((result (call 'shapes 'make-ok 42)))
+           ;; snake_cased tag: ok, not Ok
            (case result
-             (#(Ok 42) 'ok)
+             (#(ok 42) 'ok)
              (other (ct:fail `#(wrong_tagged_tuple ,other)))))))
+      (`#(error ,reason)
+       (ct:fail `#(compile_failed ,reason))))))
+
+(defun m1_5_tagged_tuple_multi_word (config)
+  (let* ((forms (check-and-decode config "adt/tagged_tuple" "roles.tlfe"))
+         (priv-dir (proplists:get_value 'priv_dir config)))
+    (case (typed_driver:compile_forms forms "roles.tlfe" priv-dir)
+      (`#(ok roles ,beam-bin)
+       (code:purge 'roles)
+       (let ((`#(module roles) (code:load_binary 'roles "roles.beam" beam-bin)))
+         ;; SuperUser → super_user (true snake_case, not superuser)
+         (let ((sup (call 'roles 'make-super 5))
+               (reg (call 'roles 'make-regular)))
+           (case sup
+             (#(super_user 5)
+              (case reg
+                ('regular_user 'ok)
+                (other (ct:fail `#(wrong_regular ,other)))))
+             (other (ct:fail `#(wrong_super_user ,other)))))))
       (`#(error ,reason)
        (ct:fail `#(compile_failed ,reason))))))
 
@@ -158,12 +180,10 @@
        (code:purge 'shapes)
        (code:load_binary 'shapes "shapes.beam" beam-bin)
        (let ((result (call 'shapes 'make-ok 99)))
-         (case (is_tuple result)
-           ('true
-            (case (=:= (element 1 result) 'Ok)
-              ('true 'ok)
-              ('false (ct:fail `#(wrong_tag ,result)))))
-           ('false (ct:fail `#(not_a_tuple ,result))))))
+         ;; Exact representation: {ok, 99} — snake_cased tag, flat tuple
+         (case result
+           (#(ok 99) 'ok)
+           (other (ct:fail `#(wrong_exact_repr ,other))))))
       (`#(error ,reason)
        (ct:fail `#(compile_failed ,reason))))))
 
@@ -175,9 +195,10 @@
        (code:purge 'colours)
        (code:load_binary 'colours "colours.beam" beam-bin)
        (let ((result (call 'colours 'get-red)))
-         (case (is_atom result)
-           ('true 'ok)
-           ('false (ct:fail `#(not_an_atom ,result))))))
+         ;; Exact representation: the atom 'red' (snake_cased)
+         (case result
+           ('red 'ok)
+           (other (ct:fail `#(wrong_exact_repr ,other))))))
       (`#(error ,reason)
        (ct:fail `#(compile_failed ,reason))))))
 
@@ -189,9 +210,10 @@
        (code:purge 'ids)
        (code:load_binary 'ids "ids.beam" beam-bin)
        (let ((result (call 'ids 'make-id 42)))
-         (case (is_integer result)
-           ('true 'ok)
-           ('false (ct:fail `#(not_an_integer ,result))))))
+         ;; Exact representation: the integer 42 (wrapper erased)
+         (case result
+           (42 'ok)
+           (other (ct:fail `#(wrong_exact_repr ,other))))))
       (`#(error ,reason)
        (ct:fail `#(compile_failed ,reason))))))
 

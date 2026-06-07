@@ -374,8 +374,20 @@ fn m1_4_wrong_arity() {
 }
 
 // ============================================================
-// M1-5..M1-9: Lowering backends
+// M1-5..M1-9: Lowering backends + snake_case
 // ============================================================
+
+#[test]
+fn m1_5_snake_case_helper() {
+    assert_eq!(lower::to_snake_case("Ok"), "ok");
+    assert_eq!(lower::to_snake_case("Error"), "error");
+    assert_eq!(lower::to_snake_case("SuperUser"), "super_user");
+    assert_eq!(lower::to_snake_case("HTTPServer"), "http_server");
+    assert_eq!(lower::to_snake_case("Red"), "red");
+    assert_eq!(lower::to_snake_case("CustomerId"), "customer_id");
+    assert_eq!(lower::to_snake_case("already_snake"), "already_snake");
+    assert_eq!(lower::to_snake_case("A"), "a");
+}
 
 #[test]
 fn m1_5_lower_tagged_tuple() {
@@ -395,6 +407,45 @@ fn m1_5_lower_tagged_tuple() {
         SExp::List(l) => {
             assert_eq!(l.elements.len(), 3);
             assert!(matches!(&l.elements[0], SExp::Symbol(s) if s.value == "tuple"));
+            // Tag must be snake_cased: 'ok', not 'Ok'
+            match &l.elements[1] {
+                SExp::List(q) => {
+                    assert!(matches!(&q.elements[1], SExp::Symbol(s) if s.value == "ok"));
+                }
+                _ => panic!("expected quoted tag"),
+            }
+        }
+        _ => panic!("expected tuple form"),
+    }
+}
+
+#[test]
+fn m1_5_lower_tagged_tuple_multi_word() {
+    let adt_input = r#"(deftype role (repr tagged-tuple) (SuperUser (level integer)) (Guest))"#;
+    let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
+    let ctor_def = adt_def.find_ctor("SuperUser").unwrap();
+    let dp = crate::error::Position::new(0, 1, 1);
+    let cons = adt::Construction {
+        ctor_name: "SuperUser".to_string(),
+        fields: vec![("level".to_string(), SExp::Number(Number::new("5", dp)))],
+        pos: dp,
+    };
+
+    let lowered = lower::lower_construction(&cons, ctor_def, &adt_def, 28);
+    match &lowered {
+        SExp::List(l) => {
+            assert_eq!(l.elements.len(), 3);
+            match &l.elements[1] {
+                SExp::List(q) => {
+                    assert_eq!(q.elements[1].position().line, 0);
+                    assert!(
+                        matches!(&q.elements[1], SExp::Symbol(s) if s.value == "super_user"),
+                        "expected 'super_user', got: {:?}",
+                        q.elements[1]
+                    );
+                }
+                _ => panic!("expected quoted tag"),
+            }
         }
         _ => panic!("expected tuple form"),
     }

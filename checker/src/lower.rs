@@ -50,24 +50,20 @@ pub fn lower_construction(
 }
 
 fn lower_tagged_tuple(construction: &Construction, ctor_def: &CtorDef) -> SExp {
+    let tag = to_snake_case(&ctor_def.name);
     if ctor_def.fields.is_empty() {
-        return quoted_atom(&ctor_def.name);
+        return quoted_atom(&tag);
     }
-    let mut elems = vec![sym("tuple"), quoted_atom(&ctor_def.name)];
+    let mut elems = vec![sym("tuple"), quoted_atom(&tag)];
     for field_def in &ctor_def.fields {
-        let val = construction
-            .fields
-            .iter()
-            .find(|(n, _)| *n == field_def.name)
-            .map(|(_, v)| strip_positions(v))
-            .unwrap_or_else(|| SExp::Nil(Nil::new(dp())));
+        let val = find_field_value(construction, &field_def.name);
         elems.push(val);
     }
     SExp::List(List::new(elems, dp()))
 }
 
 fn lower_enum(construction: &Construction) -> SExp {
-    quoted_atom(&construction.ctor_name.to_lowercase())
+    quoted_atom(&to_snake_case(&construction.ctor_name))
 }
 
 fn lower_transparent(construction: &Construction) -> SExp {
@@ -79,21 +75,56 @@ fn lower_transparent(construction: &Construction) -> SExp {
 }
 
 fn lower_native_record(construction: &Construction, ctor_def: &CtorDef) -> SExp {
+    let tag = to_snake_case(&ctor_def.name);
     if ctor_def.fields.is_empty() {
-        return quoted_atom(&ctor_def.name);
+        return quoted_atom(&tag);
     }
-    let mut elems = vec![sym("make-record"), quoted_atom(&ctor_def.name)];
+    let mut elems = vec![sym("make-record"), quoted_atom(&tag)];
     for field_def in &ctor_def.fields {
-        let val = construction
-            .fields
-            .iter()
-            .find(|(n, _)| *n == field_def.name)
-            .map(|(_, v)| strip_positions(v))
-            .unwrap_or_else(|| SExp::Nil(Nil::new(dp())));
+        let val = find_field_value(construction, &field_def.name);
         elems.push(quoted_atom(&field_def.name));
         elems.push(val);
     }
     SExp::List(List::new(elems, dp()))
+}
+
+fn find_field_value(construction: &Construction, field_name: &str) -> SExp {
+    construction
+        .fields
+        .iter()
+        .find(|(n, _)| *n == field_name)
+        .map(|(_, v)| strip_positions(v))
+        .unwrap_or_else(|| SExp::Nil(Nil::new(dp())))
+}
+
+pub fn to_snake_case(name: &str) -> String {
+    let mut result = String::with_capacity(name.len() + 4);
+    let mut prev_was_upper = false;
+    let mut prev_was_separator = true;
+    for (i, ch) in name.chars().enumerate() {
+        if ch == '-' || ch == '_' {
+            result.push('_');
+            prev_was_upper = false;
+            prev_was_separator = true;
+            continue;
+        }
+        if ch.is_uppercase() {
+            let next_is_lower = name[i + ch.len_utf8()..]
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_lowercase());
+            if !prev_was_separator && (!prev_was_upper || next_is_lower) {
+                result.push('_');
+            }
+            result.push(ch.to_lowercase().next().unwrap());
+            prev_was_upper = true;
+        } else {
+            result.push(ch);
+            prev_was_upper = false;
+        }
+        prev_was_separator = false;
+    }
+    result
 }
 
 #[cfg(test)]
@@ -177,33 +208,6 @@ pub fn lower_registry_attr(adts: &[AdtDef]) -> SExp {
         )));
     }
     SExp::List(List::new(type_entries, dp()))
-}
-
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "will be used when emitting -type attrs in M1+")
-)]
-pub fn lower_erlang_type_attr(adt: &AdtDef) -> SExp {
-    let mut union_parts = Vec::new();
-    for ctor in &adt.constructors {
-        if ctor.fields.is_empty() {
-            union_parts.push(quoted_atom(&ctor.name));
-        } else {
-            let mut tuple_elems = vec![sym("tuple")];
-            tuple_elems.push(quoted_atom(&ctor.name));
-            for field in &ctor.fields {
-                tuple_elems.push(sym(&field.type_expr));
-            }
-            union_parts.push(SExp::List(List::new(tuple_elems, dp())));
-        }
-    }
-    if union_parts.len() == 1 {
-        union_parts.into_iter().next().unwrap()
-    } else {
-        let mut union = vec![sym("union")];
-        union.extend(union_parts);
-        SExp::List(List::new(union, dp()))
-    }
 }
 
 fn strip_positions(sexp: &SExp) -> SExp {
