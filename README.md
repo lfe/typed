@@ -4,7 +4,14 @@
 
 # lfe/typed
 
-**An experiment in a statically typed LFE with algebraic data types.**
+[![Build Status][gh-actions-badge]][gh-actions]
+[![LFE Versions][lfe-badge]][lfe]
+[![Erlang Versions][erlang -adge]][version]
+[![Tags][github-tags-badge]][github-tags]
+
+*An experiment in a statically typed LFE with algebraic data types*
+
+[![Typed LFE project logo][logo]][logo-large]
 
 > ⚠️ **Status: early & experimental.** `lfe/typed` is under active design. The
 > *architecture* is settled and the compile chain works end-to-end; the *surface
@@ -197,3 +204,15 @@ feedback (especially on syntax) is enormously welcome.
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE). Package name: `lfe_typed`.
+
+[//]: ---Named-Links---
+
+[logo]: priv/images/Typed-LiffyBot.png
+[logo-large]: priv/images/Typed-LiffyBot-large.png
+[gh-actions-badge]: https://github.com/lfe/typed/actions/workflows/cicd.yml/badge.svg
+[gh-actions]: https://github.com/lfe/typed/actions
+[lfe]: https://github.com/rvirding/lfe
+[lfe-badge]: https://img.shields.io/badge/lfe-2.2+-blue.svg
+[version]: https://github.com/lfe/typed/blob/master/.github/workflows/ci.yml
+[github-tags]: https://github.com/lfe/typed/tags
+[github-tags-badge]: https://img.shields.io/github/tag/lfe/typed.svg
