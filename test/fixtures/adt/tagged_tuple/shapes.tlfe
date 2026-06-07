@@ -1,0 +1,29 @@
+;; Line 1 - adt/tagged_tuple/shapes.tlfe
+;; Fixture for M1-5 + M1-11: tagged-tuple backend.
+;; deftype on line 15, defun/typed on line 25.
+;; 4
+;; 5
+;; 6
+;; 7
+;; 8
+;; 9
+;; 10
+;; 11
+;; 12
+;; 13
+;; 14
+(defmodule shapes
+  (export (make-ok 1)))
+
+(deftype (result ok err)
+  (repr tagged-tuple)
+  (Ok    (value ok))
+  (Error (reason err)))
+
+;; 22
+;; 23
+;; 24
+(defun/typed make-ok
+  :args ((x integer))
+  :returns (result integer binary)
+  :body (Ok :value x))

@@ -1,0 +1,20 @@
+;; Line 1 - adt/enum/colours.tlfe
+;; Fixture for M1-6 + M1-11: enum backend (all-nullary sum).
+;; deftype on line 10, defun/typed on line 15.
+;; 4
+;; 5
+;; 6
+;; 7
+;; 8
+;; 9
+(defmodule colours
+  (export (get-red 0)))
+
+(deftype colour
+  (repr enum)
+  (Red) (Green) (Blue))
+
+(defun/typed get-red
+  :args ()
+  :returns colour
+  :body (Red))

@@ -1,0 +1,20 @@
+;; Line 1 - adt/transparent/ids.tlfe
+;; Fixture for M1-7 + M1-11: transparent backend (newtype).
+;; deftype on line 10, defun/typed on line 14.
+;; 4
+;; 5
+;; 6
+;; 7
+;; 8
+;; 9
+(defmodule ids
+  (export (make-id 1)))
+
+(deftype customer-id
+  (repr transparent)
+  (CustomerId (v integer)))
+
+(defun/typed make-id
+  :args ((n integer))
+  :returns customer-id
+  :body (CustomerId :v n))

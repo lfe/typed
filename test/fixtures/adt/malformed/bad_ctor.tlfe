@@ -1,0 +1,18 @@
+;; Line 1 - adt/malformed/bad_ctor.tlfe
+;; Fixture for M1-4: unknown constructor diagnostic.
+;; The deftype is on line 8, the bad construction is on line 15.
+;; 4
+;; 5
+;; 6
+;; 7
+(defmodule bad_ctor
+  (export (try-it 0)))
+
+(deftype colour
+  (repr enum)
+  (Red) (Green) (Blue))
+
+(defun/typed try-it
+  :args ()
+  :returns colour
+  :body (Purple))

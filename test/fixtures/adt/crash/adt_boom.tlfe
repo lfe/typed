@@ -1,0 +1,23 @@
+;; Line 1 - adt/crash/adt_boom.tlfe
+;; Fixture for M1-12: line injection regression for ADT runtime crash.
+;; The deftype is on line 10, the defun/typed is on line 20.
+;; The crash (error 'adt-bang) is in the body on line 20's function.
+;; 5
+;; 6
+;; 7
+;; 8
+;; 9
+(defmodule adt_boom
+  (export (explode 0)))
+
+(deftype (wrapper t)
+  (repr tagged-tuple)
+  (Wrap (val t)))
+
+;; 17
+;; 18
+;; 19
+(defun/typed explode
+  :args ()
+  :returns (wrapper integer)
+  :body (error 'adt-bang))
