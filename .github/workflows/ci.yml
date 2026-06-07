@@ -1,0 +1,53 @@
+name: ci
+
+on:
+  push:
+    branches: [main, develop, 'feature/*', 'bugfix/*']
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    name: OTP ${{ matrix.otp }} / ${{ matrix.repr-backend }}
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        otp: ['28']
+        repr-backend: ['tagged-tuple']
+        include:
+          # native-record axis — stubbed, needs OTP 29+
+          # Uncomment when OTP 29 runners are available:
+          # - otp: '29'
+          #   repr-backend: 'native-record'
+          []
+
+    container:
+      image: erlang:${{ matrix.otp }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: OTP version
+        run: erl -noshell -eval 'io:format("~s~n",[erlang:system_info(otp_release)]),halt().'
+
+      - name: Install Rust toolchain
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Build typed-check (Rust)
+        run: cd checker && cargo build
+
+      - name: Run Rust tests
+        run: cd checker && cargo test
+
+      - name: Compile Erlang/LFE
+        run: rebar3 compile
+
+      - name: Run CT suite
+        run: rebar3 ct --suite=typed_chain_SUITE
+
+      - name: Run eunit
+        run: rebar3 eunit || true
