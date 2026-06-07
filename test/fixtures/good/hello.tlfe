@@ -1,0 +1,38 @@
+;; Line 1 - good/hello.lfe
+;; Fixture for F-7: a typed function that returns a value.
+;; The defun/typed is deliberately on line 17 so injection is provable.
+;; Lines 4-16 are padding.
+;; 5
+;; 6
+;; 7
+;; 8
+;; 9
+;; 10
+;; 11
+;; 12
+;; 13
+;; 14
+;; 15
+;; 16
+(defmodule hello
+  (export (greet 1)))
+
+;; 20
+;; 21
+;; 22
+;; 23
+;; 24
+;; 25
+;; 26
+;; 27
+;; 28
+;; 29
+;; 30
+;; 31
+;; 32
+;; 33
+;; The defun/typed is on line 35.
+(defun/typed greet
+  :args ((name binary))
+  :returns binary
+  :body (list "Hello " name))

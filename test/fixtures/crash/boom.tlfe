@@ -1,0 +1,45 @@
+;; Line 1 - crash/boom.lfe
+;; Fixture for F-8: runtime crash with line injection.
+;; The defun/typed is deliberately on line 42 so the injected line is provable.
+;; 4
+;; 5
+;; 6
+;; 7
+;; 8
+;; 9
+;; 10
+;; 11
+;; 12
+;; 13
+;; 14
+;; 15
+;; 16
+;; 17
+;; 18
+;; 19
+;; 20
+;; 21
+;; 22
+;; 23
+;; 24
+(defmodule boom
+  (export (kaboom 0)))
+;; 27
+;; 28
+;; 29
+;; 30
+;; 31
+;; 32
+;; 33
+;; 34
+;; 35
+;; 36
+;; 37
+;; 38
+;; 39
+;; 40
+;; 41
+(defun/typed kaboom
+  :args ()
+  :returns integer
+  :body (error 'bang))
