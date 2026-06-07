@@ -100,9 +100,48 @@ All CDC corrections addressed in commit `a3d0834`:
    removed, axis stubbed in comments).
 7. **Hygiene.** Stray `erl_crash.dump` and `test_*.beam` removed.
 
+## CDC Re-Verification (Iteration 2)
+
+**Verifier:** Claude (CDC), 2026-06-06, against committed state (HEAD `5487ee0`;
+corrections `a3d0834`). **Method:** static re-inspection of the committed code,
+tests, fixtures, config + git history. **Calibration unchanged:** no toolchain in
+CDC env, so execution evidence is CC's pasted output, not independently re-run.
+
+All five required corrections **confirmed addressed**:
+
+1. **Committed + SHA-anchored — confirmed.** `git cat-file` resolves all claimed
+   SHAs; the M0 implementation is committed across `46ad48b`, `0fcafe6`, `ca6223b`,
+   `d182cb9`, `a3d0834`; every `done` row carries a SHA. No artifacts tracked
+   (`git ls-files` clean of `*.beam`/`erl_crash.dump`).
+2. **F-9b — airtight, confirmed by reading the test.** It injects `9042` +
+   `"injected_origin.tlfe"` via `#cinfo`, compiles via `compile:forms`, and asserts
+   the error carries BOTH the injected file and the impossible line `9042` — neither
+   can be coincidental (no such file, no such physical line). This is the
+   experiment-01-grade proof on the erlc path; spec-softening fully resolved without
+   weakening the criterion. ✅
+3. **F-9 fixture comment — confirmed** now reads "line 71".
+4. **F-4 — confirmed** asserts exact `line=1, col=1`.
+5. **F-11 / CI — confirmed** `deferred` with re-entry; the suspect `include:[]` is
+   removed (axis cleanly stubbed in comments); YAML well-formed.
+
+**Row count:** 12, no silent drops. **Headlines F-8/F-9:** test logic
+independently read and judged sound and airtight.
+
+**Residuals (non-blocking):**
+- **Independent execution still pending.** CDC could not run `cargo test`/`rebar3 ct`
+  (no toolchain). CC reports 6/6 cargo, 6/6 CT, 0 skipped — and the test *logic* is
+  CDC-verified as non-vacuous — but a third-party run has not occurred. The F-11
+  re-entry (first green CI run after push) will simultaneously satisfy this: one green
+  CI run converts CC's run-verified → independently run-verified **and** closes F-11.
+- One stray uncommitted `Makefile` change (1 line) — commit or revert for a clean tree.
+
 ## Closure
 
-Done: 11. Deferred: 1 (F-11 — awaits first green CI run after push).
-Headlines F-8 and F-9 are `done` and run-verified.
-Awaiting CDC re-verification against SHA `a3d0834`.
+**M0 CLOSED (CDC-accepted).** Closed at commit `5487ee0` (corrections `a3d0834`) on
+2026-06-06. CDC verification: Claude (CDC), static re-inspection.
+Total rows: 12. Done: 11. Deferred: 1 (F-11). No-op: 0.
+The model-Y chain and end-to-end line injection (runtime F-8 + compile-path F-9/F-9b,
+the latter airtight) are proven. Carry-forward into M1: push to trigger the F-11 green
+CI run (also the independent execution confirmation), and commit/revert the stray
+Makefile change.
 
