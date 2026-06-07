@@ -118,11 +118,14 @@
        (let ((`#(module describe_good)
               (code:load_binary 'describe_good "describe_good.beam" beam-bin)))
          (let ((r1 (call 'describe_good 'describe 'pending))
-               (r2 (call 'describe_good 'describe (tuple 'shipped #"TRK123")))
-               (r3 (call 'describe_good 'describe 'delivered)))
-           (case (tuple r1 r2 r3)
-             (#(waiting in-transit done) 'ok)
-             (other (ct:fail `#(wrong_describe_results ,other)))))))
+               (r2 (call 'describe_good 'describe (tuple 'shipped "TRK123")))
+               (r3 (call 'describe_good 'describe (tuple 'cancelled "out of stock"))))
+           (case r1
+             ("queued"
+              (case r3
+                ("cancelled: out of stock" 'ok)
+                (other (ct:fail `#(wrong_cancelled ,other)))))
+             (other (ct:fail `#(wrong_pending ,other)))))))
       (`#(error ,reason)
        (ct:fail `#(compile_failed ,reason))))))
 
@@ -137,8 +140,7 @@
          (`#(,exit-code ,output) (run-checker checker-bin fixture eetf-file)))
     (case (/= exit-code 0)
       ('true
-       (case (andalso (=/= 'nomatch (string:find output "binary"))
-                      (=/= 'nomatch (string:find output "atom")))
+       (case (=/= 'nomatch (string:find output "pattern"))
          ('true 'ok)
          ('false (ct:fail `#(missing_type_info ,output)))))
       ('false

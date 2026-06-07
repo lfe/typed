@@ -1,5 +1,5 @@
 ;; typecheck/readme/describe_good.tlfe
-;; C-4: README describe example — correct version (passes).
+;; C-4: README describe example — EXACT correct version from README.
 ;; 3
 ;; 4
 ;; 5
@@ -11,13 +11,13 @@
 (deftype order-status
   (repr tagged-tuple)
   (Pending)
-  (Shipped (tracking binary))
-  (Delivered))
+  (Shipped (tracking string))
+  (Cancelled (reason string)))
 
 (defun/typed describe
-  :args ((s order-status))
-  :returns atom
-  :body (case/typed s
-          ((Pending) 'waiting)
-          ((Shipped t) 'in-transit)
-          ((Delivered) 'done)))
+  :args ((status order-status))
+  :returns string
+  :body (case/typed status
+          ((Pending) "queued")
+          ((Shipped t) (++ "on its way: " t))
+          ((Cancelled r) (++ "cancelled: " r))))

@@ -900,7 +900,7 @@ fn m3_1_synth_literals() {
         &tenv,
         "test.lfe",
     );
-    assert_eq!(ty, crate::typecheck::Type::Binary);
+    assert_eq!(ty, crate::typecheck::Type::String);
 }
 
 #[test]
@@ -925,8 +925,8 @@ fn m3_2_synth_typed_call() {
     env.register_fun(
         "greet",
         crate::typecheck::FunSig {
-            args: vec![("name".to_string(), crate::typecheck::Type::Binary)],
-            returns: crate::typecheck::Type::Binary,
+            args: vec![("name".to_string(), crate::typecheck::Type::String)],
+            returns: crate::typecheck::Type::String,
         },
     );
     let tenv = TypeEnv::new();
@@ -935,7 +935,7 @@ fn m3_2_synth_typed_call() {
     let form = Parser::parse_str(input).unwrap();
     let (ty, errs) = crate::typecheck::synth_expr(&form, &env, &tenv, "test.lfe");
     assert!(errs.is_empty());
-    assert_eq!(ty, crate::typecheck::Type::Binary);
+    assert_eq!(ty, crate::typecheck::Type::String);
 }
 
 #[test]
@@ -1010,7 +1010,7 @@ fn m3_4_call_arg_type_mismatch() {
                 message.contains("expected type `integer`"),
                 "msg: {message}"
             );
-            assert!(message.contains("got `binary`"), "msg: {message}");
+            assert!(message.contains("got `string`"), "msg: {message}");
         }
         other => panic!("expected Diagnostic, got: {:?}", other),
     }
@@ -1145,7 +1145,7 @@ fn m3_10_snapshot_arg_type_mismatch() {
     let msg = format!("{}", errs[0]);
     assert_eq!(
         msg,
-        "math.tlfe:1:6: argument `a` expected type `integer`, got `binary`"
+        "math.tlfe:1:6: argument `a` expected type `integer`, got `string`"
     );
 }
 
@@ -1193,7 +1193,7 @@ fn m3_10_snapshot_field_value_mismatch() {
     let msg = format!("{}", errs[0]);
     assert_eq!(
         msg,
-        "container.tlfe:10:3: field `val` of constructor `Box` expects type `integer`, got `binary`"
+        "container.tlfe:10:3: field `val` of constructor `Box` expects type `integer`, got `string`"
     );
 }
 
@@ -1220,7 +1220,7 @@ fn c2_branch_body_typing_rejects_wrong_type() {
     let msg0 = format!("{}", errs[0]);
     assert_eq!(
         msg0,
-        "test.tlfe:5:3: case/typed branch returns `binary`, but expected `atom`"
+        "test.tlfe:5:3: case/typed branch returns `string`, but expected `atom`"
     );
     let msg1 = format!("{}", errs[1]);
     assert_eq!(
@@ -1299,6 +1299,59 @@ fn c5_poly_same_var_different_types_rejected() {
     let msg = format!("{}", errs[0]);
     assert_eq!(
         msg,
-        "poly.tlfe:1:10: type variable `a` bound to `integer` by argument `x`, but got `binary` here"
+        "poly.tlfe:1:10: type variable `a` bound to `integer` by argument `x`, but got `string` here"
+    );
+}
+
+// ============================================================
+// C-1: Exact render snapshot through DiagnosticCollector
+// ============================================================
+
+#[test]
+fn c1_snapshot_return_mismatch_rendered_human() {
+    let err = crate::error::CheckError::Diagnostic {
+        file: "greeting.tlfe".to_string(),
+        pos: crate::error::Position::new(0, 3, 1),
+        message: "body returns `integer`, but contract declares `:returns binary`".to_string(),
+    };
+    let source = "line1\nline2\n(defun/typed oops";
+    let mut collector = crate::diagnostic::DiagnosticCollector::new();
+    collector.add_check_error(&err, Some(source));
+    let human = collector.render_human();
+    let expected = concat!(
+        "error[E001]: body returns `integer`, but contract declares `:returns binary`\n",
+        "  --> greeting.tlfe:3:1\n",
+        "     |\n",
+        "   3 | (defun/typed oops\n",
+        "     | ^\n",
+        "\n",
+    );
+    assert_eq!(human, expected);
+}
+
+#[test]
+fn c1_snapshot_return_mismatch_rendered_json() {
+    let err = crate::error::CheckError::Diagnostic {
+        file: "greeting.tlfe".to_string(),
+        pos: crate::error::Position::new(0, 3, 1),
+        message: "body returns `integer`, but contract declares `:returns binary`".to_string(),
+    };
+    let mut collector = crate::diagnostic::DiagnosticCollector::new();
+    collector.add_check_error(&err, None);
+    let json = collector.render_json();
+    assert_eq!(
+        json,
+        concat!(
+            "[{",
+            "\"code\":\"E001\",",
+            "\"severity\":\"error\",",
+            "\"file\":\"greeting.tlfe\",",
+            "\"line\":3,",
+            "\"column\":1,",
+            "\"message\":\"body returns `integer`, but contract declares `:returns binary`\",",
+            "\"missing_ctors\":[],",
+            "\"hint\":null",
+            "}]"
+        )
     );
 }

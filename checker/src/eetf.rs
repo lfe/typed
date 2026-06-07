@@ -38,7 +38,7 @@ fn encode_sexp(sexp: &SExp, buf: &mut Vec<u8>) {
     match sexp {
         SExp::Symbol(s) => encode_atom(&s.value, buf),
         SExp::Keyword(k) => encode_atom(&k.name, buf),
-        SExp::String(s) => encode_binary(s.value.as_bytes(), buf),
+        SExp::String(s) => encode_string(s.value.as_bytes(), buf),
         SExp::Number(n) => {
             if let Ok(v) = n.value.parse::<i64>() {
                 encode_integer(v, buf);
@@ -81,6 +81,16 @@ fn encode_integer(val: i64, buf: &mut Vec<u8>) {
         buf.push(INTEGER_TAG);
         buf.extend_from_slice(&(val as i32).to_be_bytes());
     }
+}
+
+fn encode_string(data: &[u8], buf: &mut Vec<u8>) {
+    buf.push(LIST_TAG);
+    let len = data.len() as u32;
+    buf.extend_from_slice(&len.to_be_bytes());
+    for &byte in data {
+        encode_integer(byte as i64, buf);
+    }
+    buf.push(NIL_TAG);
 }
 
 fn encode_binary(data: &[u8], buf: &mut Vec<u8>) {

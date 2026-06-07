@@ -89,7 +89,7 @@
       (`#(ok hello ,beam-bin)
        (let ((`#(module hello) (code:load_binary 'hello "hello.beam" beam-bin)))
          (case (hello:greet #"world")
-           (`(#"Hello " #"world") 'ok)
+           (`("Hello " #"world") 'ok)
            (other (ct:fail `#(wrong_result ,other))))))
       (`#(error ,reason)
        (ct:fail `#(compile_failed ,reason))))))

@@ -1,6 +1,6 @@
 ;; typecheck/readme/describe_bad.tlfe
-;; C-4: README describe example — wrong version (rejected).
-;; The case/typed is exhaustive but a branch returns the wrong type.
+;; C-4: README describe example — EXACT wrong version from README.
+;; Matches on string patterns instead of constructors → rejected.
 ;; 4
 ;; 5
 ;; 6
@@ -11,13 +11,13 @@
 (deftype order-status
   (repr tagged-tuple)
   (Pending)
-  (Shipped (tracking binary))
-  (Delivered))
+  (Shipped (tracking string))
+  (Cancelled (reason string)))
 
 (defun/typed describe
-  :args ((s order-status))
-  :returns atom
-  :body (case/typed s
-          ((Pending) "waiting")
-          ((Shipped t) "in-transit")
-          ((Delivered) "done")))
+  :args ((status order-status))
+  :returns string
+  :body (case/typed status
+          ("pending" "queued")
+          ("shipped" "on its way")
+          ("cancelled" "nevermind")))

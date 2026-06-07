@@ -71,6 +71,8 @@ pub fn types_compatible(got: &Type, expected: &Type) -> bool {
             | (Type::Number, Type::Float)
             | (Type::String, Type::List)
             | (Type::List, Type::String)
+            | (Type::Binary, Type::String)
+            | (Type::String, Type::Binary)
     )
 }
 
@@ -146,7 +148,7 @@ pub fn synth_expr(
                 Type::Integer
             }
         }
-        SExp::String(_) => Type::Binary,
+        SExp::String(_) => Type::String,
         SExp::Nil(_) => Type::List,
         SExp::Keyword(_) => Type::Atom,
         SExp::Symbol(s) => {
@@ -193,7 +195,7 @@ fn synth_quote(l: &List) -> Type {
                     Type::Integer
                 }
             }
-            SExp::String(_) => Type::Binary,
+            SExp::String(_) => Type::String,
             SExp::List(_) => Type::List,
             _ => Type::Dynamic,
         }
