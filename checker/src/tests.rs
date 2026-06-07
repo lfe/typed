@@ -1093,3 +1093,106 @@ fn m3_9_dynamic_compatible_with_any() {
         &crate::typecheck::Type::Dynamic,
     ));
 }
+
+// ============================================================
+// M3-10: Exact golden snapshots for headline diagnostics
+// ============================================================
+
+#[test]
+fn m3_10_snapshot_return_mismatch() {
+    let env = crate::typecheck::BodyEnv::new();
+    let tenv = TypeEnv::new();
+
+    let body = vec![SExp::Number(Number::new(
+        "42",
+        crate::error::Position::new(0, 5, 8),
+    ))];
+    let errors = crate::typecheck::check_body_return(
+        &body,
+        "binary",
+        &env,
+        &tenv,
+        "greeting.tlfe",
+        crate::error::Position::new(0, 3, 1),
+    );
+    assert_eq!(errors.len(), 1);
+    let msg = format!("{}", errors[0]);
+    assert_eq!(
+        msg,
+        "greeting.tlfe:3:1: body returns `integer`, but contract declares `:returns binary`"
+    );
+}
+
+#[test]
+fn m3_10_snapshot_arg_type_mismatch() {
+    let mut env = crate::typecheck::BodyEnv::new();
+    env.register_fun(
+        "add",
+        crate::typecheck::FunSig {
+            args: vec![
+                ("a".to_string(), crate::typecheck::Type::Integer),
+                ("b".to_string(), crate::typecheck::Type::Integer),
+            ],
+            returns: crate::typecheck::Type::Integer,
+        },
+    );
+    let tenv = TypeEnv::new();
+
+    let input = r#"(add "hello" 2)"#;
+    let form = Parser::parse_str(input).unwrap();
+    let (_, errs) = crate::typecheck::synth_expr(&form, &env, &tenv, "math.tlfe");
+    assert_eq!(errs.len(), 1);
+    let msg = format!("{}", errs[0]);
+    assert_eq!(
+        msg,
+        "math.tlfe:1:6: argument `a` expected type `integer`, got `binary`"
+    );
+}
+
+#[test]
+fn m3_10_snapshot_wrong_arity() {
+    let mut env = crate::typecheck::BodyEnv::new();
+    env.register_fun(
+        "add",
+        crate::typecheck::FunSig {
+            args: vec![
+                ("a".to_string(), crate::typecheck::Type::Integer),
+                ("b".to_string(), crate::typecheck::Type::Integer),
+            ],
+            returns: crate::typecheck::Type::Integer,
+        },
+    );
+    let tenv = TypeEnv::new();
+
+    let input = "(add 1)";
+    let form = Parser::parse_str(input).unwrap();
+    let (_, errs) = crate::typecheck::synth_expr(&form, &env, &tenv, "math.tlfe");
+    assert_eq!(errs.len(), 1);
+    let msg = format!("{}", errs[0]);
+    assert_eq!(msg, "math.tlfe:1:1: function expects 2 argument(s), got 1");
+}
+
+#[test]
+fn m3_10_snapshot_field_value_mismatch() {
+    let adt_input = r#"(deftype (box t) (repr tagged-tuple) (Box (val integer)))"#;
+    let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
+    let env = crate::typecheck::BodyEnv::new();
+    let tenv = TypeEnv::new();
+
+    let dp = crate::error::Position::new(0, 10, 3);
+    let errs = crate::typecheck::check_constructor_field_values(
+        "Box",
+        &[("val".to_string(), SExp::String(StringLit::new("oops", dp)))],
+        &adt_def,
+        &env,
+        &tenv,
+        "container.tlfe",
+        dp,
+    );
+    assert_eq!(errs.len(), 1);
+    let msg = format!("{}", errs[0]);
+    assert_eq!(
+        msg,
+        "container.tlfe:10:3: field `val` of constructor `Box` expects type `integer`, got `binary`"
+    );
+}
