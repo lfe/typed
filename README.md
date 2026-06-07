@@ -34,8 +34,8 @@ Two things we care about above all else:
 
 ## A taste *(syntax is provisional!)*
 
-Declaring an algebraic data type — a sum of products, with **named fields** and
-type parameters:
+Declaring algebraic data types — sums of products, with **named fields** and type
+parameters:
 
 ```lisp
 (deftype (result ok err)
@@ -45,10 +45,16 @@ type parameters:
 (deftype (option a)
   (Some (value a))
   (None))
+
+(deftype order-status
+  (Pending)
+  (Shipped   (tracking string))
+  (Cancelled (reason   string)))
 ```
 
-Writing a function with a Lykn-style **contract** — the types live right at the
-boundary, where you'd want to read them:
+A function with a Lykn-style **contract** — the types live right at the boundary.
+Here it is written the *wrong* way, matching on raw strings instead of the type's
+constructors:
 
 ```lisp
 (defun/typed describe
@@ -56,28 +62,39 @@ boundary, where you'd want to read them:
   (:returns string)
   (:body
     (case/typed status
-      ((Pending   o) (++ "queued: "   (order-id o)))
-      ((Shipped   o) (++ "shipped: "  (tracking o)))
-      ((Cancelled o) (++ "cancelled: " (reason o))))))
+      ("pending"   "queued")
+      ("shipped"   "on its way")
+      ("cancelled" "nevermind"))))
 ```
 
-And the part we're really building toward — when a match misses a case, the tool
-should *teach*, not scold:
+`typed` rejects it before it ever runs — and tries to *teach*, not scold:
 
 ```
-error[non-exhaustive-match]: this `case/typed` doesn't cover every constructor
-  ┌─ src/orders.lfe:24:3
+error[pattern-type-mismatch]: this pattern can't match a value of type `order-status`
+  ┌─ src/orders.lfe:24:7
   │
-24│   (case/typed status
-  │   ┬
-  │   ╰─ scrutinee has type `order-status`
+24│       ("pending"   "queued")
+  │        ^^^^^^^^^ string pattern, but `status` has type `order-status`
   │
-  = not handled: Shipped, Cancelled
-  = hint: add a clause for each, or a wildcard `_` if you mean to ignore them.
+  = `order-status` is one of: Pending, Shipped, Cancelled
+  = hint: match the constructors instead, e.g. (Pending) / (Shipped t) / (Cancelled r)
 ```
 
-*(That error output is the bar we're aiming at — not a screenshot of something that
-exists yet.)*
+Written correctly — matching on the constructors, and exhaustively:
+
+```lisp
+(defun/typed describe
+  (:args    ((status order-status)))
+  (:returns string)
+  (:body
+    (case/typed status
+      ((Pending)     "queued")
+      ((Shipped   t) (++ "on its way: " t))
+      ((Cancelled r) (++ "cancelled: " r)))))
+```
+
+*(Both the error output and the syntax are the bar we're aiming at — sketches of the
+feel we're after, not screenshots of something that exists yet.)*
 
 ---
 
