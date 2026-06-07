@@ -77,6 +77,7 @@ fn f4_malformed_diagnostic_has_line_col() {
                 message
             );
         }
+        other => panic!("unexpected error: {:?}", other),
     }
 }
 
@@ -302,6 +303,7 @@ fn m1_4_unknown_constructor() {
             assert_eq!(pos.line, 10);
             assert_eq!(pos.column, 5);
         }
+        other => panic!("unexpected error: {:?}", other),
     }
 }
 
@@ -325,6 +327,7 @@ fn m1_4_unknown_field() {
             assert_eq!(pos.line, 15);
             assert_eq!(pos.column, 3);
         }
+        other => panic!("unexpected error: {:?}", other),
     }
 }
 
@@ -347,6 +350,7 @@ fn m1_4_missing_field() {
             );
             assert_eq!(pos.line, 20);
         }
+        other => panic!("unexpected error: {:?}", other),
     }
 }
 
@@ -370,6 +374,7 @@ fn m1_4_wrong_arity() {
             assert!(message.contains("expects 1 field"), "msg: {message}");
             assert_eq!(pos.line, 25);
         }
+        other => panic!("unexpected error: {:?}", other),
     }
 }
 
@@ -507,4 +512,293 @@ fn m1_9_default_repr_resolution() {
     let sum = adt::extract_deftype(&Parser::parse_str(sum_input).unwrap()).unwrap();
     assert_eq!(sum.effective_repr(28), adt::ReprKind::TaggedTuple);
     assert_eq!(sum.effective_repr(29), adt::ReprKind::NativeRecord);
+}
+
+// ============================================================
+// M2 tests — Pattern matching & exhaustiveness
+// ============================================================
+
+#[test]
+fn m2_1_parse_case_typed() {
+    let input = r#"(case/typed x
+  ((Ok v) v)
+  ((Error e) e))"#;
+    let form = Parser::parse_str(input).unwrap();
+    let tm = crate::matching::extract_case_typed(&form).unwrap();
+    assert_eq!(tm.clauses.len(), 2);
+    match &tm.clauses[0].pattern {
+        crate::matching::Pattern::Constructor { name, bindings, .. } => {
+            assert_eq!(name, "Ok");
+            assert_eq!(bindings, &["v"]);
+        }
+        _ => panic!("expected constructor pattern"),
+    }
+}
+
+#[test]
+fn m2_1_parse_wildcard_and_var() {
+    let input = r#"(case/typed x
+  ((Ok v) v)
+  (_ 0))"#;
+    let form = Parser::parse_str(input).unwrap();
+    let tm = crate::matching::extract_case_typed(&form).unwrap();
+    assert!(tm.clauses[1].pattern.is_catch_all());
+}
+
+#[test]
+fn m2_1_parse_explicit_type_annotation() {
+    let input = r#"(case/typed x :type result
+  ((Ok v) v)
+  ((Error e) e))"#;
+    let form = Parser::parse_str(input).unwrap();
+    let tm = crate::matching::extract_case_typed(&form).unwrap();
+    assert_eq!(tm.scrutinee_type, Some("result".to_string()));
+}
+
+#[test]
+fn m2_3_exhaustiveness_rejects_missing() {
+    let adt_input = r#"(deftype (result ok err) (Ok (value ok)) (Error (reason err)))"#;
+    let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
+
+    let match_input = r#"(case/typed x
+  ((Ok v) v))"#;
+    let form = Parser::parse_str(match_input).unwrap();
+    let tm = crate::matching::extract_case_typed(&form).unwrap();
+
+    let errors = crate::matching::check_exhaustiveness(&tm, &adt_def, "test.lfe");
+    assert_eq!(errors.len(), 1);
+    match &errors[0] {
+        crate::error::CheckError::NonExhaustive {
+            missing, type_name, ..
+        } => {
+            assert_eq!(type_name, "result");
+            assert_eq!(missing, &["Error"]);
+        }
+        _ => panic!("expected NonExhaustive"),
+    }
+}
+
+#[test]
+fn m2_3_exhaustiveness_accepts_complete() {
+    let adt_input = r#"(deftype (result ok err) (Ok (value ok)) (Error (reason err)))"#;
+    let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
+
+    let match_input = r#"(case/typed x
+  ((Ok v) v)
+  ((Error e) e))"#;
+    let form = Parser::parse_str(match_input).unwrap();
+    let tm = crate::matching::extract_case_typed(&form).unwrap();
+
+    let errors = crate::matching::check_exhaustiveness(&tm, &adt_def, "test.lfe");
+    assert!(errors.is_empty());
+}
+
+#[test]
+fn m2_3_exhaustiveness_accepts_wildcard() {
+    let adt_input = r#"(deftype (result ok err) (Ok (value ok)) (Error (reason err)))"#;
+    let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
+
+    let match_input = r#"(case/typed x
+  ((Ok v) v)
+  (_ 0))"#;
+    let form = Parser::parse_str(match_input).unwrap();
+    let tm = crate::matching::extract_case_typed(&form).unwrap();
+
+    let errors = crate::matching::check_exhaustiveness(&tm, &adt_def, "test.lfe");
+    assert!(errors.is_empty());
+}
+
+#[test]
+fn m2_3_exhaustiveness_missing_multiple() {
+    let adt_input = "(deftype status (Pending) (Shipped) (Delivered) (Cancelled))";
+    let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
+
+    let match_input = r#"(case/typed s
+  ((Pending) 1))"#;
+    let form = Parser::parse_str(match_input).unwrap();
+    let tm = crate::matching::extract_case_typed(&form).unwrap();
+
+    let errors = crate::matching::check_exhaustiveness(&tm, &adt_def, "test.lfe");
+    assert_eq!(errors.len(), 1);
+    match &errors[0] {
+        crate::error::CheckError::NonExhaustive { missing, .. } => {
+            assert_eq!(missing, &["Shipped", "Delivered", "Cancelled"]);
+        }
+        _ => panic!("expected NonExhaustive"),
+    }
+}
+
+#[test]
+fn m2_4_pattern_unknown_ctor() {
+    let adt_input = r#"(deftype (result ok err) (Ok (value ok)) (Error (reason err)))"#;
+    let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
+
+    let match_input = r#"(case/typed x
+  ((Ok v) v)
+  ((Unknown e) e))"#;
+    let form = Parser::parse_str(match_input).unwrap();
+    let tm = crate::matching::extract_case_typed(&form).unwrap();
+
+    let errors = crate::matching::check_pattern_wellformedness(&tm, &adt_def, "test.lfe");
+    assert_eq!(errors.len(), 1);
+    match &errors[0] {
+        crate::error::CheckError::Diagnostic { message, .. } => {
+            assert!(
+                message.contains("unknown constructor `Unknown`"),
+                "msg: {message}"
+            );
+        }
+        _ => panic!("expected Diagnostic"),
+    }
+}
+
+#[test]
+fn m2_4_pattern_wrong_arity() {
+    let adt_input = r#"(deftype (result ok err) (Ok (value ok)) (Error (reason err)))"#;
+    let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
+
+    let match_input = r#"(case/typed x
+  ((Ok a b) a)
+  ((Error e) e))"#;
+    let form = Parser::parse_str(match_input).unwrap();
+    let tm = crate::matching::extract_case_typed(&form).unwrap();
+
+    let errors = crate::matching::check_pattern_wellformedness(&tm, &adt_def, "test.lfe");
+    assert_eq!(errors.len(), 1);
+    match &errors[0] {
+        crate::error::CheckError::Diagnostic { message, .. } => {
+            assert!(message.contains("has 1 field"), "msg: {message}");
+        }
+        _ => panic!("expected Diagnostic"),
+    }
+}
+
+#[test]
+fn m2_8_lower_case_tagged_tuple() {
+    let adt_input =
+        r#"(deftype (result ok err) (repr tagged-tuple) (Ok (value ok)) (Error (reason err)))"#;
+    let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
+
+    let match_input = r#"(case/typed x
+  ((Ok v) v)
+  ((Error e) e))"#;
+    let form = Parser::parse_str(match_input).unwrap();
+    let tm = crate::matching::extract_case_typed(&form).unwrap();
+
+    let lowered = crate::match_lower::lower_case_typed(&tm, &adt_def, 28);
+    match &lowered {
+        SExp::List(l) => {
+            assert!(matches!(&l.elements[0], SExp::Symbol(s) if s.value == "case"));
+            assert!(l.elements.len() >= 3);
+        }
+        _ => panic!("expected case list"),
+    }
+}
+
+#[test]
+fn m2_10_redundancy_warning() {
+    let match_input = r#"(case/typed x
+  ((Ok v) v)
+  ((Ok w) w)
+  ((Error e) e))"#;
+    let form = Parser::parse_str(match_input).unwrap();
+    let tm = crate::matching::extract_case_typed(&form).unwrap();
+
+    let warnings = crate::matching::check_redundancy(&tm, "test.lfe");
+    assert_eq!(warnings.len(), 1);
+    match &warnings[0] {
+        crate::error::CheckError::Diagnostic { message, .. } => {
+            assert!(message.contains("redundant"), "msg: {message}");
+        }
+        _ => panic!("expected Diagnostic"),
+    }
+}
+
+#[test]
+fn m2_10_unreachable_after_wildcard() {
+    let match_input = r#"(case/typed x
+  (_ 0)
+  ((Ok v) v))"#;
+    let form = Parser::parse_str(match_input).unwrap();
+    let tm = crate::matching::extract_case_typed(&form).unwrap();
+
+    let warnings = crate::matching::check_redundancy(&tm, "test.lfe");
+    assert_eq!(warnings.len(), 1);
+    match &warnings[0] {
+        crate::error::CheckError::Diagnostic { message, .. } => {
+            assert!(message.contains("unreachable"), "msg: {message}");
+        }
+        _ => panic!("expected Diagnostic"),
+    }
+}
+
+#[test]
+fn m2_6_diagnostic_engine_renders() {
+    let err = crate::error::CheckError::NonExhaustive {
+        file: "test.lfe".to_string(),
+        pos: crate::error::Position::new(0, 5, 3),
+        type_name: "result".to_string(),
+        missing: vec!["Error".to_string()],
+    };
+    let mut collector = crate::diagnostic::DiagnosticCollector::new();
+    collector.add_check_error(&err, Some("line1\nline2\nline3\nline4\n(case/typed r"));
+    assert!(collector.has_errors());
+
+    let human = collector.render_human();
+    assert!(human.contains("non-exhaustive"), "human: {human}");
+    assert!(human.contains("Error"), "human missing ctor: {human}");
+    assert!(human.contains("Hint:"), "human missing hint: {human}");
+
+    let json = collector.render_json();
+    assert!(json.contains("\"code\":\"E100\""), "json: {json}");
+    assert!(json.contains("\"Error\""), "json missing ctor: {json}");
+}
+
+#[test]
+fn m2_11_snapshot_non_exhaustive_human() {
+    let err = crate::error::CheckError::NonExhaustive {
+        file: "orders.tlfe".to_string(),
+        pos: crate::error::Position::new(0, 10, 1),
+        type_name: "status".to_string(),
+        missing: vec!["Shipped".to_string(), "Cancelled".to_string()],
+    };
+    let mut collector = crate::diagnostic::DiagnosticCollector::new();
+    collector.add_check_error(&err, Some(&("x\n".repeat(9) + "(case/typed s")));
+    let human = collector.render_human();
+    let expected = concat!(
+        "error[E100]: non-exhaustive pattern match on type `status`\n",
+        "  --> orders.tlfe:10:1\n",
+        "      |\n",
+        "   10 | (case/typed s\n",
+        "      | ^\n",
+        "   |\n",
+        "   = These values are not matched:\n",
+        "       - Shipped\n",
+        "       - Cancelled\n",
+        "   = Hint: add clauses for the missing constructor(s), or use `_` as a catch-all.\n",
+        "\n",
+    );
+    assert_eq!(
+        human, expected,
+        "\n--- GOT ---\n{human}\n--- EXPECTED ---\n{expected}"
+    );
+}
+
+#[test]
+fn m2_11_snapshot_non_exhaustive_json() {
+    let err = crate::error::CheckError::NonExhaustive {
+        file: "orders.tlfe".to_string(),
+        pos: crate::error::Position::new(0, 10, 1),
+        type_name: "status".to_string(),
+        missing: vec!["Shipped".to_string(), "Cancelled".to_string()],
+    };
+    let mut collector = crate::diagnostic::DiagnosticCollector::new();
+    collector.add_check_error(&err, None);
+    let json = collector.render_json();
+    assert!(json.contains("\"code\":\"E100\""));
+    assert!(json.contains("\"severity\":\"error\""));
+    assert!(json.contains("\"file\":\"orders.tlfe\""));
+    assert!(json.contains("\"line\":10"));
+    assert!(json.contains("\"missing_ctors\":[\"Shipped\",\"Cancelled\"]"));
+    assert!(json.contains("\"hint\":\"add clauses"));
 }

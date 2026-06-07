@@ -1,7 +1,10 @@
 mod adt;
+mod diagnostic;
 mod eetf;
 mod error;
 mod lower;
+mod match_lower;
+mod matching;
 mod sexp;
 mod type_env;
 mod typed_surface;
@@ -28,6 +31,12 @@ fn main() {
         .and_then(|i| args.get(i + 1))
         .and_then(|s| s.parse().ok())
         .unwrap_or(28);
+    let format_json = args
+        .iter()
+        .position(|a| a == "--format")
+        .and_then(|i| args.get(i + 1))
+        .is_some_and(|v| v == "json")
+        || args.iter().any(|a| a == "--json");
 
     let source_name = Path::new(input_file)
         .file_name()
@@ -86,6 +95,7 @@ fn main() {
                         otp_version,
                         source_name,
                         &mut had_error,
+                        &tf.args,
                     );
                     let mut tf_lowered = tf.clone();
                     tf_lowered.body = body;
@@ -122,6 +132,9 @@ fn main() {
     }
 
     if had_error {
+        if format_json {
+            eprintln!("[]");
+        }
         process::exit(1);
     }
 
@@ -175,10 +188,19 @@ fn lower_body_constructions(
     otp_version: u32,
     source_name: &str,
     had_error: &mut bool,
+    arg_types: &[(String, String)],
 ) -> Vec<sexp::types::SExp> {
     body.iter()
         .map(|expr| {
-            lower_expr_constructions(expr, env, ctor_names, otp_version, source_name, had_error)
+            lower_expr_constructions(
+                expr,
+                env,
+                ctor_names,
+                otp_version,
+                source_name,
+                had_error,
+                arg_types,
+            )
         })
         .collect()
 }
@@ -190,7 +212,71 @@ fn lower_expr_constructions(
     otp_version: u32,
     source_name: &str,
     had_error: &mut bool,
+    arg_types: &[(String, String)],
 ) -> sexp::types::SExp {
+    // Check for case/typed forms
+    if is_case_typed(expr) {
+        match matching::extract_case_typed(expr) {
+            Ok(mut typed_match) => {
+                if typed_match.scrutinee_type.is_none() {
+                    if let sexp::types::SExp::Symbol(s) = &typed_match.scrutinee {
+                        if let Some((_, type_name)) = arg_types.iter().find(|(n, _)| *n == s.value)
+                        {
+                            typed_match.scrutinee_type = Some(type_name.clone());
+                        }
+                    }
+                }
+
+                if let Some(type_name) = &typed_match.scrutinee_type {
+                    if let Some(adt_def) = env.lookup_type(type_name) {
+                        let pattern_errors = matching::check_pattern_wellformedness(
+                            &typed_match,
+                            adt_def,
+                            source_name,
+                        );
+                        for e in &pattern_errors {
+                            eprintln!("{}", e);
+                        }
+                        if !pattern_errors.is_empty() {
+                            *had_error = true;
+                            return expr.clone();
+                        }
+
+                        let exhaustiveness_errors =
+                            matching::check_exhaustiveness(&typed_match, adt_def, source_name);
+                        for e in &exhaustiveness_errors {
+                            eprintln!("{}", e);
+                        }
+                        if !exhaustiveness_errors.is_empty() {
+                            *had_error = true;
+                            return expr.clone();
+                        }
+
+                        let redundancy_warnings =
+                            matching::check_redundancy(&typed_match, source_name);
+                        for w in &redundancy_warnings {
+                            eprintln!("warning: {}", w);
+                        }
+
+                        return match_lower::lower_case_typed(&typed_match, adt_def, otp_version);
+                    }
+                }
+
+                eprintln!(
+                    "{}:{}: can't check exhaustiveness: unknown scrutinee type",
+                    source_name, typed_match.pos
+                );
+                return expr.clone();
+            }
+            Err(e) => {
+                let e = stamp_file(e, source_name);
+                eprintln!("{}", e);
+                *had_error = true;
+                return expr.clone();
+            }
+        }
+    }
+
     // Check for known constructor calls
     if let Some(result) = adt::extract_construction(expr, ctor_names) {
         match result {
@@ -241,13 +327,27 @@ fn lower_expr_constructions(
             .elements
             .iter()
             .map(|e| {
-                lower_expr_constructions(e, env, ctor_names, otp_version, source_name, had_error)
+                lower_expr_constructions(
+                    e,
+                    env,
+                    ctor_names,
+                    otp_version,
+                    source_name,
+                    had_error,
+                    arg_types,
+                )
             })
             .collect();
         return sexp::types::SExp::List(sexp::types::List::new(lowered_elems, l.pos));
     }
 
     expr.clone()
+}
+
+fn is_case_typed(form: &sexp::types::SExp) -> bool {
+    matches!(form, sexp::types::SExp::List(l)
+        if !l.elements.is_empty()
+            && matches!(&l.elements[0], sexp::types::SExp::Symbol(s) if s.value == "case/typed"))
 }
 
 fn is_deftype(form: &sexp::types::SExp) -> bool {
@@ -268,6 +368,17 @@ fn stamp_file(e: error::CheckError, file: &str) -> error::CheckError {
             file: file.to_string(),
             pos,
             message,
+        },
+        error::CheckError::NonExhaustive {
+            pos,
+            type_name,
+            missing,
+            ..
+        } => error::CheckError::NonExhaustive {
+            file: file.to_string(),
+            pos,
+            type_name,
+            missing,
         },
     }
 }

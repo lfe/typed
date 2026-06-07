@@ -1,0 +1,23 @@
+;; Line 1 - matching/non_exhaustive/missing_ctors.tlfe
+;; Fixture for M2-3: non-exhaustive match (missing Error + Timeout).
+;; deftype on line 8, defun/typed on line 14.
+;; The case/typed is inside the body on line 19 — checker should reject.
+;; 5
+;; 6
+;; 7
+(defmodule missing_ctors
+  (export (handle 1)))
+
+(deftype (response ok err)
+  (repr tagged-tuple)
+  (Ok      (value ok))
+  (Error   (reason err))
+  (Timeout))
+
+;; 17
+;; 18
+(defun/typed handle
+  :args ((r response))
+  :returns integer
+  :body (case/typed r
+          ((Ok v) v)))

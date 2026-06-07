@@ -40,7 +40,7 @@ pub enum LexError {
 }
 
 #[derive(Debug, thiserror::Error)]
-#[expect(dead_code, reason = "variants reserved for M1 parser improvements")]
+#[expect(dead_code, reason = "variants reserved for parser improvements")]
 pub enum ParseError {
     #[error("unexpected token {token:?} at {pos}")]
     UnexpectedToken { token: String, pos: Position },
@@ -72,14 +72,51 @@ pub enum ParseError {
     LexError(#[from] LexError),
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone)]
 pub enum CheckError {
-    #[error("{file}:{pos}: {message}")]
     Diagnostic {
         file: String,
         pos: Position,
         message: String,
     },
+    NonExhaustive {
+        file: String,
+        pos: Position,
+        type_name: String,
+        missing: Vec<String>,
+    },
 }
+
+impl fmt::Display for CheckError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CheckError::Diagnostic { file, pos, message } => {
+                write!(f, "{}:{}: {}", file, pos, message)
+            }
+            CheckError::NonExhaustive {
+                file,
+                pos,
+                type_name,
+                missing,
+            } => {
+                write!(
+                    f,
+                    "{}:{}: non-exhaustive pattern match on type `{}`\n\
+                     These values are not matched:\n",
+                    file, pos, type_name
+                )?;
+                for m in missing {
+                    writeln!(f, "  - {}", m)?;
+                }
+                write!(
+                    f,
+                    "Hint: add clauses for the missing constructor(s), or use `_` as a catch-all."
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for CheckError {}
 
 pub type Result<T> = std::result::Result<T, ParseError>;

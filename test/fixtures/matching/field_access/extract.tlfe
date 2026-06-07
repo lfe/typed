@@ -1,0 +1,19 @@
+;; Line 1 - matching/field_access/extract.tlfe
+;; Fixture for M2-5: field access via patterns.
+;; 3
+;; 4
+;; 5
+;; 6
+;; 7
+(defmodule extract
+  (export (get-value 1)))
+
+(deftype (wrapper t)
+  (repr tagged-tuple)
+  (Wrap (val t)))
+
+(defun/typed get-value
+  :args ((w wrapper))
+  :returns integer
+  :body (case/typed w
+          ((Wrap v) v)))

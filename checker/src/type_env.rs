@@ -21,10 +21,6 @@ impl TypeEnv {
         self.types.insert(adt.name.clone(), adt);
     }
 
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "used for cross-module type resolution in M4+")
-    )]
     pub fn lookup_type(&self, name: &str) -> Option<&AdtDef> {
         self.types.get(name)
     }

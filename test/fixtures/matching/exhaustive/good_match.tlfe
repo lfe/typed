@@ -1,0 +1,21 @@
+;; Line 1 - matching/exhaustive/good_match.tlfe
+;; Fixture for M2-3/M2-5/M2-8: exhaustive match with field access.
+;; deftype on line 8, defun/typed on line 15.
+;; 4
+;; 5
+;; 6
+;; 7
+(defmodule good_match
+  (export (unwrap 1)))
+
+(deftype (result ok err)
+  (repr tagged-tuple)
+  (Ok    (value ok))
+  (Error (reason err)))
+
+(defun/typed unwrap
+  :args ((r result))
+  :returns integer
+  :body (case/typed r
+          ((Ok v) v)
+          ((Error e) -1)))
