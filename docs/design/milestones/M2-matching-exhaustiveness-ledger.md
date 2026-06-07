@@ -74,12 +74,29 @@ static inspection (CI is green, so execution is now independently confirmed; tes
 snapshots. Not clean-closed: **M2-9** needs enum/transparent match tests; **M2-6**
 eprintln!-refactor reclassified (no-op/M2.5). A small iteration 2 closes it.
 
+## CDC Re-Verification (Iteration 2)
+
+**Verifier:** Claude (CDC), 2026-06-06, against `95f13a2` / `bc7fb49` (CI green).
+Both iteration-1 findings **confirmed closed**:
+
+1. **M2-9 — fixed, verified.** Rust `m2_9_lower_case_enum` + `m2_9_lower_case_transparent`
+   cover the lowerings; CT `m2_9_matrix_enum_match` asserts `colour-code` red/green/blue
+   ⇒ `#(1 2 3)` (exact tuple), and `m2_9_matrix_transparent_match` asserts `unwrap-id 42`
+   ⇒ `42` (exact) — proving the subtle bare-value transparent unwrap works at runtime.
+   All three testable backends now have matching tests with exact assertions; the gap was
+   actually tested, not hand-waved. → `done`.
+2. **M2-6 — closed.** `eprintln!` sub-item `no-op` with the documented rationale (CLI/IO
+   messages, not type diagnostics; the engine handles all type diagnostics). → `done`.
+
+Row count 13, no silent drops. 40/40 Rust, 22/22 CT (0 skipped), `make check` clean, CI green.
+
 ## Closure
 
-**CC close-out (iteration 2), SHA `95f13a2`:**
-- M2-9 fixed: enum + transparent match tests added (Rust lowering + CT runtime, exact).
-- M2-6 closed: eprintln! sub-item = `no-op` (CLI/IO, not type diagnostics).
-
-Done: 13. Deferred: 0. No-op sub-items: 1 (M2-6 eprintln! refactor).
-Test summary: 40/40 Rust, 22/22 CT (0 skipped), `make check` clean.
-Awaiting CDC re-verification against `95f13a2`.
+**M2 CLOSED (CDC-accepted).** Closed at commit `bc7fb49` (corrections `95f13a2`) on
+2026-06-06. CDC: Claude (CDC), static re-inspection + CI-green independent execution.
+Total rows: 13. **Done: 13. Deferred: 0.** (Native-record matching runtime rides M1-8's
+OTP-29+ deferral; M2's testable backends are all proven.)
+The thesis is delivered: `case/typed` **rejects** non-exhaustive matches with a
+teaching-grade, exact-snapshot-tested diagnostic naming every missing constructor,
+across tagged-tuple/enum/transparent, via a real human+JSON diagnostic engine — the
+thing Dialyzer cannot do for LFE. M0/M1 line injection preserved throughout.
