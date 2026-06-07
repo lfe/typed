@@ -13,7 +13,7 @@
 | M1-2 | Parsed ADTs populate the checker type environment; a `deftype` referencing another resolves. | Rust test: env lookup of a declared type + a cross-referencing type | correctness | design §6 | done | SHA `d2ad236`. Run-verified: `cargo test m1_2_type_env_register_and_lookup ... ok`. Lookup by type name and by ctor name both resolve. | Module-local only (no cross-module consume) |
 | M1-3 | Construction form parses into an internal construction node (ctor + named field values). | Rust test: parse `(Ok :value 42)` → ctor=Ok, fields=[(value, 42)] | correctness | design §4.1 | done | SHA `d2ad236`. Run-verified: `cargo test m1_3_parse_construction ... ok`, `m1_3_parse_nullary_construction ... ok`. | |
 | M1-4 | **Constructor well-formedness check (structural):** unknown ctor, unknown field, missing field, wrong arity each yield a Tier-1 diagnostic with exact **line:col**. | Rust tests: 4 malformed fixtures, assert exact span + message per case | serious | design §3.2a, §7 | done | SHA `d2ad236`. Run-verified: `cargo test m1_4_unknown_constructor ... ok`, `m1_4_unknown_field ... ok`, `m1_4_missing_field ... ok`, `m1_4_wrong_arity ... ok`. Each asserts exact line+col. CLI on `bad_ctor.tlfe` outputs `bad_ctor.tlfe:18:10: unknown constructor`. | Field-VALUE type checking is OUT (needs expr typing) |
-| M1-5 | **Lowering — `tagged-tuple` (required, default <29):** `(Ok :value 42)` → flat `{'Ok', 42}` (snake_case tag). | CT (LFE): build + construct, assert runtime term `{'Ok',42}` (or `#('Ok' 42)`) | serious | Audit 2 §7 | done | SHA `d2ad236`. Run-verified: CT `m1_5_tagged_tuple` passed (15/15). Runtime: `shapes:make-ok(42) = {'Ok',42}`. | Flat (Gleam), not nested (Alpaca) |
+| M1-5 | **Lowering — `tagged-tuple` (required, default <29):** `(Ok :value 42)` → flat `{ok, 42}` (**snake_case** tag, `SuperUser`→`super_user`). | CT (LFE): build + construct, assert runtime term `{ok,42}` (snake_cased tag) | serious | Audit 2 §7 | **open** (CDC) | SHA `d2ad236`: impl emits `{'Ok',42}` (verbatim, capitalized) — **deviates from the snake_case criterion**, and is inconsistent across backends (enum `to_lowercase`s, tagged-tuple/native-record don't; none true snake_case). Decision (Duncan): **snake_case**. Re-do: add a true snake_case helper, apply consistently to tagged-tuple + enum + native-record, assert snake_cased tags in tests. | See CDC Verification |
 | M1-6 | **Lowering — `enum` (required):** all-nullary sum → atoms. | CT (LFE): `(deftype colour (Red)(Green)(Blue))`; construct `Red`, assert `'red'` | correctness | Audit 2 §7 | done | SHA `d2ad236`. Run-verified: CT `m1_6_enum` passed. Runtime: `colours:get-red() = red`. | |
 | M1-7 | **Lowering — `transparent` (should):** 1-ctor/1-field newtype → payload itself. | CT (LFE): construct `(CustomerId :v 7)`, assert runtime value `=:= 7` | correctness | Audit 3 §8 | done | SHA `d2ad236`. Run-verified: CT `m1_7_transparent` passed. Runtime: `ids:make-id(7) = 7`. | |
 | M1-8 | **Lowering — `native-record` (code; runtime deferred):** `(Ok :value 42)` → native record `#Ok{value=42}` (true distinct type, `is_record` true). | Code present + guarded CT on OTP 29+ | correctness | Audit 1 §2.6, Audit 2 §3.5 | **deferred** | SHA `d2ad236`. `lower_native_record` code present in `lower.rs`. Runtime test deferred — OTP 28 has no native records. **Re-entry:** when OTP 29+ toolchain is available. | |
@@ -41,7 +41,47 @@
 
 ## CDC Verification
 
-_(Filled in by CDC against the closing SHA.)_
+**Verifier:** Claude (CDC), 2026-06-06, against `d2ad236` (closing) / `dda09c1`
+(ledger) / `21658b0` (README). **Method:** static inspection (no toolchain in CDC
+env — execution evidence is CC's; test *logic* read for vacuity/spec-softening).
+
+**Row count:** 13, no silent drops. **Committed cleanly:** SHAs resolve; tree clean;
+no `.beam`/`erl_crash.dump` tracked. **`make check` clean:** CC's claim (not re-run).
+
+**Verified sound (read-verified):** M1-1,2,3 (parsing + type env, non-vacuous);
+**M1-4** (diagnostics are genuine + teaching-grade — `unknown field … available: …`;
+reports exact `18:` span); M1-6/M1-7 lowering shapes; M1-9 default-repr logic;
+M1-11 matrix (passes, but see gap below); **M1-12** (regression holds — crash reports
+`adt_boom.tlfe:20` per-function, error reports `18:` precise); M1-13 (LFE CT suite,
+0 skipped, idiomatic).
+
+**Findings requiring correction:**
+
+1. **M1-5 — spec deviation → `open`.** Criterion says **snake_case** tag; impl emits
+   `{'Ok',42}` (verbatim). Casing is inconsistent across backends: `enum` uses
+   `to_lowercase()` (line 70 — also not true snake_case: `SuperUser`→`superuser`),
+   `tagged-tuple`/`native-record` apply no transform. The matrix tests assert only
+   representation *type* (`is_tuple`/`is_atom`/`is_integer`), not the exact tag, so the
+   deviation passed unnoticed — and the test was written to match the (deviating) code.
+   **Decision (Duncan): snake_case.** Fix: a true snake_case helper applied consistently
+   to all backends; tests assert the snake_cased tag.
+2. **M1-5 test gap.** Strengthen the matrix to assert the **exact representation**
+   (incl. tag/value), not just the type — that's what would have caught this.
+3. **M1-10 — `-type` half is dead code.** `lower_registry_attr` is wired
+   (`main.rs:136`) and verified ✓; but `lower_erlang_type_attr` is **defined and never
+   called** (a `pub fn`, so no dead-code warning). The criterion's "+ free Erlang
+   `-type`" is unmet. Given Dialyzer is unreliable for LFE (low value), the clean move
+   is to **defer/drop** it explicitly and **remove the dead fn**. Registry-attr (the
+   load-bearing, cross-module half) stands as `done`.
+4. **M1-8 (native-record) — note for the 29+ re-entry:** the lowering emits a
+   `(make-record 'Ok 'field val …)` form; that shape is **unverified** (OTP 28 can't
+   run it) and must be validated/likely adjusted against real native-record codegen on
+   a 29+ toolchain. Also apply the snake_case decision to it.
+
+**Disposition:** M1 is substantially done and the headline (ADTs construct + check +
+lower + matrix + line-injection-preserved) is real. Not clean-closed: M1-5 `open`
+(snake_case redo + test), M1-10 `-type` reclassify + dead-code removal. Iteration 2
+should close these.
 
 ## Closure
 
