@@ -86,15 +86,26 @@ milestones.
 clean-closed: M3-10 needs exact snapshots for the 3 headlines; M3-6/M3-14 reclassified
 `deferred` (done). Engine routing, branch typing, README demo, poly unification → M3.5.
 
+## CDC Re-Verification (Iteration 2)
+
+**Verifier:** Claude (CDC), 2026-06-07, against `00b0a5e` / `1fcacbd` (CI green).
+**Confirmed:** the four `m3_10_snapshot_*` tests are genuine **exact** `assert_eq!`
+over the full rendered message (e.g. `greeting.tlfe:3:1: body returns \`integer\`, but
+contract declares \`:returns binary\``) — 8 `assert_eq!`, **0 `.contains()`** across them.
+The standing rule (exact diagnostics, never substring — [[typed-test-discipline]]) is
+applied. M3-6 / M3-11 / M3-14 honestly `deferred` to M3.5. Row count 14, no silent drops;
+55/55 Rust, 25/25 CT (0 skipped), `make check` clean.
+
 ## Closure
 
-**CC close-out (iteration 2), SHA `00b0a5e`:**
-- M3-10 fixed: 4 exact golden snapshot tests (`assert_eq!`, standing rule) for
-  body-vs-returns, arg-type, wrong-arity, field-value diagnostics. No `.contains()`.
-- M3-6 confirmed `deferred` (branch-body typing → M3.5).
-- M3-14 confirmed `deferred` (poly unification → M3.5).
-- M3-11 confirmed `deferred` (README describe, prioritized for M3.5).
-
-Done: 10. Done with caveat: 1 (M3-10, engine routing deferred). Deferred: 3 (M3-6,
-M3-11, M3-14). Test summary: 55/55 Rust, 25/25 CT (0 skipped), `make check` clean.
-Awaiting CDC re-verification against `00b0a5e`.
+**M3 CLOSED (CDC-accepted).** Closed at commit `1fcacbd` (corrections `00b0a5e`) on
+2026-06-07. CDC: Claude (CDC), static re-inspection + CI-green execution.
+Total rows: 14. **Done: 11** (M3-10's engine span+caret routing is the lone deferred
+sub-item → M3.5). **Deferred: 3** (M3-6 branch-body typing, M3-11 README demo, M3-14
+polymorphic unification → M3.5).
+The static core is delivered and *proven by catching a live bug*: `typed` now rejects
+wrong return types, mis-typed/wrong-arity arguments, and bad constructor field values —
+each with an exact, snapshot-tested, teaching-grade diagnostic, via bidirectional
+contract-first checking. **M3.5 backlog:** engine span+caret routing for M3 errors,
+`case/typed` branch-body typing, README `describe` demo, polymorphic unification.
+**Next major milestone: M4 — runtime enforcement** ([[typed-runtime-enforcement]]).
