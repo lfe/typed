@@ -81,50 +81,83 @@ to adopt a different language or compiler. Two components:
 
 ### 3.1 The pipeline
 
+**Decided (experiment-backed): model Y — we own the compile chain.** Rather than
+gating LFE's own compile, `typed` reads the source, checks it, lowers it itself,
+and drives codegen — like Gleam. This is what lets us stamp *original-source*
+positions onto generated code (LFE's macro expander discards positions; our
+lowering doesn't). Verified in
+[experiment 01](experiments/01-lfe-line-anno-probe.md) on OTP 28 / LFE 2.2.1.
+
 ```
-  your_module.lfe   (uses typed: deftype / defun/typed / typed match)
+  your_module.lfe   (typed surface: deftype / defun/typed / case/typed)
         │
+        ▼  read source with a COLUMN-AWARE reader (oxur-derived)
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  typed-check  (Rust)                                               │
+  │   • parse the typed surface DIRECTLY → ADT-level AST (line+col)    │
+  │   • bidirectional check vs contracts; exhaustiveness; ctor checks  │
+  │   • emit Gleam-grade diagnostics with line+COLUMN   ── Tier 1      │
+  │   • on PASS: lower each typed form → plain-LFE form, tagged with   │
+  │     its ORIGINAL source line  →  [{plain-lfe-form, orig-line}, …]  │
+  └──────────────────────────────────────────────────────────────────┘
+        │  hand off lowered forms + original lines  (EETF or sexpr)
         ▼
-  ┌─────────────────────────────────────────────────────────────┐
-  │  LFE macro expansion  (Component A: the `typed` macro library)│
-  │   • typed macros LOWER to plain LFE for the chosen repr        │
-  │   • AND emit a REGISTRY: define-type/defspec (→ real -type/    │
-  │     -spec) + custom `(typed-registry …)` module attributes     │
-  │     capturing pre-lowering ADT/contract/match structure        │
-  └─────────────────────────────────────────────────────────────┘
-        │  lfe_comp:file(File, [to_expand])  → macro-expanded, pre-codegen forms
-        ▼
-  ┌─────────────────────────────────────────────────────────────┐
-  │  typed-check  (Component B: Rust)                              │
-  │   • parse LFE sexprs → reconstruct typed AST from registry     │
-  │   • bidirectional check vs contracts; exhaustiveness; ctor     │
-  │     arity/payload; unknown ctor                                │
-  │   • emit Gleam-grade diagnostics; return pass / fail           │
-  └─────────────────────────────────────────────────────────────┘
-        │  pass?  ── no ──▶  reject build, print diagnostics
-        │  yes
-        ▼
-  normal LFE compile (lfe_comp: expand → lint → codegen → BEAM)
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  thin Erlang driver                                                │
+  │   • lfe_lint:module(Forms, …)         % honors our lines           │
+  │   • lfe_codegen:module(Forms, #cinfo{file=OrigFile}) → Erlang AST  │
+  │   • compile:forms(AST, [{source, OrigFile}, …])      → BEAM        │
+  └──────────────────────────────────────────────────────────────────┘
+        │
+        ▼  BEAM — stack traces & compile errors report ORIGINAL file+line (Tier 2)
 ```
 
-The build-step ordering is enforced by a `rebar3_lfe`-style provider: `typed check`
-runs (or is wired as a pre-compile hook) and **gates** `lfe compile`. This is the
-"check before lower" invariant made operational — the checker examines the
-`to_expand` output (post-macro, pre-Erlang-codegen), the altitude at which our
-registry still describes the ADTs explicitly.
+The typed surface is parsed and lowered by *our* tool, **not** by LFE's macro
+expander. That is the crux: checking the *source* (not the `to_expand` output)
+preserves both the ADT structure (which lowering erases) and positions (which
+expansion erases — verified in the position dig). "Check before lower" is therefore
+literal: the checker works on the source-level ADT AST; lowering happens only after
+a pass, inside our tool, where we control the line stamping. The `rebar3_lfe`-style
+provider drives this whole chain (check → lower → codegen → BEAM); there is no
+separate "normal LFE compile" of the original typed source.
 
-### 3.2 Why two components, in two languages
+**Line injection is real (experiment 01).** `lfe_codegen:module([{Form, L}, …],
+#cinfo{file=F})` followed by `compile:forms(AST, [{source, F}, …])` makes a stamped
+line `L` and file `F` surface in **runtime stack traces** *and* in both
+**LFE-lint** and **erlc** compile errors — for code with no physical line `L`.
+Granularity is **per-function** (`lfe_translate:to_expr` threads one line to all of
+a function's sub-nodes); per-expression needs an upstream `to_expr` change (§ Tier 3).
 
-- The **surface must be LFE** — it's how users write code and it expands to LFE.
-  (Component A.)
-- The **checker is Rust** — decided: team Rust fluency + 10-year Rust toolchain +
-  in-flight Rustler/LFE work; the Gleam precedent (a Rust checker for a BEAM ADT
-  language); Rust's best-in-class diagnostics crates (Goal 2); and it eliminates
-  the Alpaca "untyped compiler is unsafe to evolve" risk (Audit 3 §9).
-- **Cost owned:** we forgo *checker self-application* (a Rust checker can't be
-  typed by `typed`). We recover the design-completeness oracle by dogfooding
-  `typed` on **real LFE codebases**, and Component A (the LFE library) remains a
-  future `typed` target. (See §10.)
+### 3.2 The two components
+
+- **`typed-check` (Rust) — all the smarts.** Parses the typed surface, type-checks,
+  lowers to plain LFE forms (stamping original lines), renders diagnostics. Keeping
+  every "understanding" of typed code in one *typed* language is the direct
+  mitigation of the Alpaca "untyped compiler is unsafe to evolve" risk (Audit 3 §9).
+  Decided language for: team Rust fluency + 10-year Rust toolchain + in-flight
+  Rustler/LFE work; the Gleam precedent; best-in-class diagnostics crates (Goal 2).
+- **Thin Erlang driver — dumb plumbing.** Takes the lowered `[{Form, OrigLine}, …]`
+  and calls `lfe_lint:module/2` → `lfe_codegen:module/2` → `compile:forms/2`. Small,
+  low-risk, and *must* be Erlang because `lfe_codegen` is. The `rebar3_lfe` provider
+  invokes the Rust binary and this driver in sequence.
+- **No fork, still.** Output is vanilla LFE/`.beam` any LFE/OTP consumes; the user
+  just runs our `rebar3` build step (a plugin — the LFE-ecosystem norm). Same deal
+  as Gleam: own the chain, emit ordinary BEAM artifacts.
+- **Cost owned:** the Rust checker can't be `typed`-checked (no self-application).
+  We recover the design-completeness oracle by dogfooding `typed` on **real LFE
+  codebases** (§10).
+
+### 3.2a Diagnostics: three tiers (the precision story)
+
+1. **Type errors (our checker) — line + COLUMN.** Free: they're found in our own
+   AST, read from source with a column-aware reader; they never cross into LFE/BEAM.
+2. **Downstream compile/runtime errors → original file + LINE, per-function.** Free
+   via line injection (experiment 01). This is the Elixir trick, now verified on LFE.
+3. **Per-expression / column downstream — DEFERRED.** Needs `lfe_translate:to_expr`
+   to accept per-node lines (a concrete, small upstream contribution to propose to
+   Robert — the "source-maps for LFE" prototype payoff), or Erlang-AST
+   post-processing; column is unrecoverable in stack traces (the runtime strips it,
+   confirmed). Tiers 1–2 are v0; tier 3 is the upstream collaboration.
 
 ### 3.3 Grounding in real LFE / rebar3_lfe mechanisms
 
@@ -136,48 +169,43 @@ existing extension points, it does **not** require patching LFE:
 | Define the typed surface macros | `defmacro` → `define-macro` | `lfe_macro.erl:1010` |
 | Ship macros to consumers | `(export-macro …)` → synthesized `LFE-EXPAND-EXPORTED-MACRO/3` | `lfe_macro_export.erl:143, 91` |
 | Cross-module macro call `(typed:deftype …)` | `exp_call_macro` | `lfe_macro.erl:1084` |
-| Get post-macro, pre-codegen AST | compiler `to_expand` stop flag | `lfe_comp.erl:246` |
-| Emit registry that survives compile | custom module attributes pass through verbatim | `lfe_codegen.erl:157` |
+| Read source with **column** precision | oxur-derived reader (NOT `lfe_io`, which is line-only) | [02-oxur-sexp-reuse.md](02-oxur-sexp-reuse.md) |
+| Lower with original lines | `lfe_codegen:module([{Form,Line}], #cinfo{file})` honors custom lines | `lfe_codegen.erl:42,74,330`; experiment 01 |
+| Lint with original lines | `lfe_lint:module([{Form,Line}], …)` honors custom lines | experiment 01 |
+| Emit BEAM from forms | `compile:forms(AST, [{source, OrigFile}, …])` | experiment 01 |
+| Cross-module type interface | custom module attributes survive to `.beam`, `beam_lib`-readable | `lfe_codegen.erl:157` |
 | Free Dialyzer breadcrumbs | existing `deftype`/`defspec` → real `-type`/`-spec` | `lfe_macro.erl:996–1004`; `lfe_codegen.erl:401, 415` |
-| Read a module's forms programmatically | `lfe_io:parse_file/1` + `lfe_macro:expand_fileforms/4` | `lfe_io.erl:72`; `lfe_macro.erl:145` |
 | Register the `typed check` command | `providers:create` + `rebar_state:add_provider` (namespace `lfe`) | `r3lfe_prv_compile.erl:25–41`; `rebar3_lfe.erl:15` |
-| Order check before compile | provider `{deps, [{lfe, compile}]}` or `provider_hooks` | `r3lfe_prv_repl.erl:22` |
-| Invoke LFE compiler from provider | `lfe_comp:file/2` | `r3lfe_compile_worker.erl:49` |
 
-> Note: LFE has **no** `parse_transform` equivalent (verified). The supported
-> integration is exactly the `to_expand` + provider path above — which is why the
-> Rust checker runs as a separate build step rather than an in-compiler pass.
+> Note: LFE has **no** `parse_transform` equivalent (verified), and `lfe_comp:forms/2`
+> auto-numbers forms (so it can't carry our lines — experiment 01). The integration
+> is therefore the **provider-driven chain**: our Rust tool reads source, checks,
+> and lowers; the thin Erlang driver calls `lfe_lint:module/2` → `lfe_codegen:module/2`
+> → `compile:forms/2`. **API-coupling risk:** `lfe_codegen:module/2`, `lfe_lint:module/2`,
+> and `#cinfo` are semi-internal — pin the LFE version and/or get these blessed as
+> stable entry points (a collaboration touchpoint with Robert).
 
-### 3.4 The registry (Component A → B contract)
+### 3.4 What crosses the component boundary
 
-The macros must hand the checker everything it needs to check *before* lowering
-erases it. Two carriers, both confirmed to survive to the expanded forms / BEAM:
+There is no "registry to carry past lowering" for the **current** module — the Rust
+checker reads the source directly, so the typed forms *are* the ADT-level truth
+(with precise spans). Two real handoffs remain:
 
-1. **Standard `define-type` / `define-function-spec`** — gives real Erlang
-   `-type`/`-spec` (documentation + any Dialyzer that does work, for free).
-2. **Custom `(typed-registry …)` module attributes** — the structured payload the
-   checker actually consumes: constructor definitions (name, named fields + field
-   types, parametricity), the chosen `repr`, function contracts, and the
-   high-level (pre-lowering) shape of each typed `match`/`case` so exhaustiveness
-   is checkable.
+1. **Rust → Erlang driver:** the lowered `[{plain-lfe-form, orig-line}, …]`. This is
+   an internal protocol we control on both ends; **EETF** (lossless) is the safe
+   default, sexpr-text the readable alternative.
+2. **Cross-module type interface:** a compiled typed module ships its ADT/contract
+   **registry as a custom module attribute** in its `.beam` (survives, `beam_lib`-
+   readable). The checker reads a dependency's types from there (or re-reads its
+   source). This is the one place a serialized registry genuinely earns its keep.
 
-**Open sub-decision (impl-plan):** serialization across the LFE→Rust boundary.
-Candidates: emit the `to_expand` forms as **S-expression text** (Rust parses
-sexprs — trivial, homoiconic-friendly) — *recommended default*; or Erlang External
-Term Format (EETF) for fidelity. Leaning sexpr-text for v0.
+### 3.5 Checker invocation — decided
 
-### 3.5 Checker invocation (recommended, open to redline)
-
-How the provider runs the Rust binary:
-
-| Option | Pros | Cons | Verdict |
-|---|---|---|---|
-| **Standalone binary / port** | crash isolation (a checker bug can't take down the build VM); simplest; Gleam-style | ship per-platform binaries (plugin fetches, or cargo build) | **Recommended** |
-| **Rustler NIF** | no separate binary; in-VM call; leverages our Rustler expertise | a NIF crash kills the build VM; long checks need dirty schedulers | tempting, but isolation matters more at build time |
-| **escript/port over EETF** | clean message protocol | extra protocol surface | viable alternative |
-
-Recommendation: **standalone binary invoked as a port** by the provider;
-distribute precompiled binaries (Gleam's approach), `cargo`-buildable fallback.
+**Standalone Rust binary**, invoked by the `rebar3_lfe`-style provider (which also
+runs the thin Erlang driver). Chosen for crash isolation at build time over a
+Rustler NIF (a NIF crash takes down the build VM; long checks would need dirty
+schedulers). Distribute precompiled per-platform binaries (Gleam's approach), with a
+`cargo`-buildable fallback.
 
 ---
 
@@ -342,7 +370,7 @@ crates (ariadne / miette / codespan):
 
 | M | Title | Delivers |
 |---|---|---|
-| **M0** | Skeleton & plumbing | `typed` lib scaffold + `typed-check` Rust crate; `rebar3_lfe` `typed check` provider that runs `to_expand`, ships forms to Rust, gates compile; sexpr reader in Rust; CI + backend-matrix harness. |
+| **M0** | Skeleton & plumbing | `typed` lib scaffold + `typed-check` Rust crate; `rebar3_lfe` `typed check` provider that runs `to_expand`, ships forms to Rust, gates compile; sexpr reader **adopted from `oxur`'s `sexp/` module** (factored or vendored) + LFE-lexeme extension + `parse_all` (see [02-oxur-sexp-reuse.md](02-oxur-sexp-reuse.md)); CI + backend-matrix harness. |
 | **M1** | ADTs + representation | `deftype` (named-field, parametric); construction/lowering across **all four `repr` backends**; registry emission; matrix tests green. |
 | **M2** | Exhaustiveness + diagnostics | typed `case`/`match`; **non-exhaustive ⇒ rejection** naming missing ctors; Gleam-grade diagnostic renderer + JSON mode; snapshot tests. |
 | **M3** | Contracts | `defun/typed`; bidirectional checking of bodies vs `:args`/`:returns`; ctor arity/field/payload checks. |
@@ -354,15 +382,26 @@ the next.
 
 ## 12. Open questions carried to the implementation plan
 
-1. **Registry serialization** across LFE→Rust (sexpr-text recommended vs EETF).
-2. **Checker invocation** (standalone binary/port recommended vs Rustler NIF).
-3. **Surface syntax** — the actual tokens for `deftype`/`defun/typed`/`case/typed`
+1. ~~Registry serialization~~ — **resolved** (§3.4): Rust→Erlang handoff = EETF
+   default; cross-module interface = registry in `.beam` module attributes.
+2. ~~Checker invocation~~ — **resolved** (§3.5): standalone Rust binary.
+3. **Where does lowering live, Rust or Erlang?** Decided lean: Rust owns
+   parse+check+lower (smarts in one typed language); thin Erlang driver does
+   `lfe_lint`/`lfe_codegen`/`compile:forms`. Confirm the split in impl-plan.
+4. **Surface syntax** — the actual tokens for `deftype`/`defun/typed`/`case/typed`
    (deliberately deferred; must preserve low-ceremony feel).
-4. **How much local inference** inside bodies vs pure check-against-contract.
-5. **Native-record term-order position** — empirically pin on OTP 30 (Audit 2 §7.3).
-6. **Binary distribution** of the Rust checker (precompiled per platform vs build).
-7. **Cross-module types** — referencing ADTs/contracts across modules (remote types,
-   `export-type`).
+5. **How much local inference** inside bodies vs pure check-against-contract; and
+   the v0 treatment of opaque interiors (`dynamic()` vs the soundness spectrum).
+6. **Native-record term-order position** — empirically pin on OTP 30 (Audit 2 §7.3).
+   Note: native records are **OTP 29+**; on OTP 28 the default backend is
+   `tagged-tuple` (validates pluggable + matrix).
+7. **Per-expression source mapping (Tier 3)** — propose `lfe_translate:to_expr`
+   per-node lines upstream (with Robert), or Erlang-AST post-processing.
+8. **Binary distribution** of the Rust checker (precompiled per platform vs build).
+9. **Cross-module types** — referencing ADTs/contracts across modules (remote types,
+   `export-type`), read from dependency `.beam` registry attributes.
+10. **LFE internal-API coupling** — pin LFE version / bless `lfe_codegen:module/2`,
+    `lfe_lint:module/2`, `#cinfo` as stable (with Robert).
 
 ---
 
