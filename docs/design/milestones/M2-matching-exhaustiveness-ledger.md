@@ -39,14 +39,45 @@
 
 ## CDC Verification
 
-_(Filled in by CDC against the closing SHA.)_
+**Verifier:** Claude (CDC), 2026-06-06, against `6a7e43f` / `1734618`. **Method:**
+static inspection (CI is green, so execution is now independently confirmed; test
+*logic* read for vacuity/spec-softening). Row count 13, no silent drops; tree clean.
+
+**Thesis confirmed — and rigorously (this is the headline):**
+- **M2-3 / M2-11 land.** `m2_3_exhaustiveness_missing_multiple` asserts the missing set
+  *exactly* (`["Shipped","Delivered","Cancelled"]`); `m2_11_snapshot_non_exhaustive_human`
+  is a genuine **exact** `assert_eq!(human, expected)` over the full multi-line render
+  (span, caret, "These values are not matched: …", both ctors, Hint). The M1 lesson is
+  properly applied — not a `contains()` check. `case/typed` rejects non-exhaustive
+  matches with a teaching-grade, exact-tested diagnostic. ✅
+- **M2-6 engine is real:** `DiagnosticCollector` (push / add_check_error / render_human /
+  render_json / has_errors); type diagnostics route through it. **Caveat is minor:** the
+  unrefactored `eprintln!`s in `main.rs` are CLI/IO messages (usage, write-failed), not
+  *type* diagnostics — so routing them through the engine is low-value. Reclassify:
+  engine `done`; the eprintln! refactor → `no-op`/M2.5 (rationale: not type diagnostics).
+- M2-7 (JSON) + M2-10 (redundancy) delivered though only "should". M2-1,2,4,5,8,12,13
+  verified non-vacuous.
+
+**Finding requiring correction — M2-9 (the one real gap):**
+- `match_lower` *does* dispatch all four reprs, and I **read the enum/transparent
+  pattern lowerings as correct** (`lower_transparent_pattern` binds the bare value — no
+  tag, right for transparent; `lower_enum_pattern` matches the snake_cased atom). BUT
+  they are **untested**: no runtime CT and no Rust lowering test for enum/transparent
+  matching (only tagged-tuple, `m2_8`). CC's rationale ("backend-identical; M1-11
+  construction matrix covers it") is hand-waving — **construction ≠ matching**, and the
+  matrix's whole purpose is to *prove* equivalence, not assume it (it's exactly what
+  caught M1's casing bug). Code-correct-by-reading is not the bar; the criterion asks for
+  EXACT assertions across tagged-tuple + enum + transparent. → **M2-9 reopened.** Fix is
+  cheap: add enum + transparent match tests (Rust lowering asserts + ideally CT runtime).
+
+**Disposition:** M2 is strong and the thesis genuinely lands with rigorous exact
+snapshots. Not clean-closed: **M2-9** needs enum/transparent match tests; **M2-6**
+eprintln!-refactor reclassified (no-op/M2.5). A small iteration 2 closes it.
 
 ## Closure
 
-CC implementation complete at SHA `6a7e43f`. Iteration 1 of 5.
-Total rows: 13. Done: 11. Done with caveat: 2 (M2-6 ad-hoc refactor deferred;
-M2-9 enum/transparent match matrix deferred — construction matrix from M1-11
-covers representation, matching logic is backend-identical).
-
-Test summary: 38/38 Rust tests, 20/20 CT tests (0 skipped), `make check` clean.
-Awaiting CDC verification.
+**Not yet closed (CDC).** Iteration 1 (`6a7e43f`) landed the thesis + engine + JSON +
+redundancy, all CI-green. Blocking clean close: (a) M2-9 — add enum/transparent match
+tests (don't assume backend-identical); (b) M2-6 — reclassify the eprintln! refactor as
+`no-op` (not type diagnostics) or do it. CDC-accepted on everything else.
+Revised tally: Done 11 · Reopened 1 (M2-9) · Caveat-reclassify 1 (M2-6).

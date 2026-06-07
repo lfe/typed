@@ -802,3 +802,73 @@ fn m2_11_snapshot_non_exhaustive_json() {
     assert!(json.contains("\"missing_ctors\":[\"Shipped\",\"Cancelled\"]"));
     assert!(json.contains("\"hint\":\"add clauses"));
 }
+
+// ============================================================
+// M2-9: enum + transparent match lowering tests
+// ============================================================
+
+#[test]
+fn m2_9_lower_case_enum() {
+    let adt_input = "(deftype colour (repr enum) (Red) (Green) (Blue))";
+    let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
+
+    let match_input = r#"(case/typed c
+  ((Red) 1)
+  ((Green) 2)
+  ((Blue) 3))"#;
+    let form = Parser::parse_str(match_input).unwrap();
+    let tm = crate::matching::extract_case_typed(&form).unwrap();
+
+    let lowered = crate::match_lower::lower_case_typed(&tm, &adt_def, 28);
+    match &lowered {
+        SExp::List(l) => {
+            assert!(matches!(&l.elements[0], SExp::Symbol(s) if s.value == "case"));
+            // First clause pattern should be a quoted snake_cased atom 'red'
+            match &l.elements[2] {
+                SExp::List(clause) => match &clause.elements[0] {
+                    SExp::List(q) => {
+                        assert!(matches!(&q.elements[0], SExp::Symbol(s) if s.value == "quote"));
+                        assert!(
+                            matches!(&q.elements[1], SExp::Symbol(s) if s.value == "red"),
+                            "expected 'red', got: {:?}",
+                            q.elements[1]
+                        );
+                    }
+                    _ => panic!("expected quoted atom pattern"),
+                },
+                _ => panic!("expected clause list"),
+            }
+        }
+        _ => panic!("expected case list"),
+    }
+}
+
+#[test]
+fn m2_9_lower_case_transparent() {
+    let adt_input = "(deftype customer-id (repr transparent) (CustomerId (v integer)))";
+    let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
+
+    let match_input = r#"(case/typed id
+  ((CustomerId v) v))"#;
+    let form = Parser::parse_str(match_input).unwrap();
+    let tm = crate::matching::extract_case_typed(&form).unwrap();
+
+    let lowered = crate::match_lower::lower_case_typed(&tm, &adt_def, 28);
+    match &lowered {
+        SExp::List(l) => {
+            assert!(matches!(&l.elements[0], SExp::Symbol(s) if s.value == "case"));
+            // Transparent pattern: just a variable binding (no tuple/tag)
+            match &l.elements[2] {
+                SExp::List(clause) => {
+                    assert!(
+                        matches!(&clause.elements[0], SExp::Symbol(s) if s.value == "v"),
+                        "expected bare variable 'v', got: {:?}",
+                        clause.elements[0]
+                    );
+                }
+                _ => panic!("expected clause list"),
+            }
+        }
+        _ => panic!("expected case list"),
+    }
+}

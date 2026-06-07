@@ -1,0 +1,21 @@
+;; matching/matrix/enum_match.tlfe
+;; M2-9: enum matching — case/typed over all-nullary sum.
+;; 3
+;; 4
+;; 5
+;; 6
+;; 7
+(defmodule enum_match
+  (export (colour-code 1)))
+
+(deftype colour
+  (repr enum)
+  (Red) (Green) (Blue))
+
+(defun/typed colour-code
+  :args ((c colour))
+  :returns integer
+  :body (case/typed c
+          ((Red) 1)
+          ((Green) 2)
+          ((Blue) 3)))

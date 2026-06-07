@@ -1,0 +1,19 @@
+;; matching/matrix/transparent_match.tlfe
+;; M2-9: transparent matching — case/typed over newtype.
+;; 3
+;; 4
+;; 5
+;; 6
+;; 7
+(defmodule transparent_match
+  (export (unwrap-id 1)))
+
+(deftype customer-id
+  (repr transparent)
+  (CustomerId (v integer)))
+
+(defun/typed unwrap-id
+  :args ((id customer-id))
+  :returns integer
+  :body (case/typed id
+          ((CustomerId v) v)))

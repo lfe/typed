@@ -25,6 +25,9 @@
    (m2_3_non_exhaustive_rejected 1)
    ;; M2-5: field access via patterns
    (m2_5_field_access 1)
+   ;; M2-9: backend matrix for matching
+   (m2_9_matrix_enum_match 1)
+   (m2_9_matrix_transparent_match 1)
    ;; M2-12: line injection regression
    (m2_12_match_line_injection 1)))
 
@@ -32,6 +35,8 @@
   '(m2_3_exhaustive_match
     m2_3_non_exhaustive_rejected
     m2_5_field_access
+    m2_9_matrix_enum_match
+    m2_9_matrix_transparent_match
     m2_12_match_line_injection))
 
 (defun suite () `(#(timetrap #(seconds 60))))
@@ -110,6 +115,43 @@
            (case result
              (99 'ok)
              (other (ct:fail `#(wrong_field_access ,other)))))))
+      (`#(error ,reason)
+       (ct:fail `#(compile_failed ,reason))))))
+
+;;; M2-9: backend matrix — enum matching
+
+(defun m2_9_matrix_enum_match (config)
+  (let* ((forms (check-and-decode config "matching/matrix" "enum_match.tlfe"))
+         (priv-dir (proplists:get_value 'priv_dir config)))
+    (case (typed_driver:compile_forms forms "enum_match.tlfe" priv-dir)
+      (`#(ok enum_match ,beam-bin)
+       (code:purge 'enum_match)
+       (let ((`#(module enum_match) (code:load_binary 'enum_match "enum_match.beam" beam-bin)))
+         ;; Exact assertions: matching on atom values
+         (let ((r (call 'enum_match 'colour-code 'red))
+               (g (call 'enum_match 'colour-code 'green))
+               (b (call 'enum_match 'colour-code 'blue)))
+           (case (tuple r g b)
+             (#(1 2 3) 'ok)
+             (other (ct:fail `#(wrong_enum_match ,other)))))))
+      (`#(error ,reason)
+       (ct:fail `#(compile_failed ,reason))))))
+
+;;; M2-9: backend matrix — transparent matching
+
+(defun m2_9_matrix_transparent_match (config)
+  (let* ((forms (check-and-decode config "matching/matrix" "transparent_match.tlfe"))
+         (priv-dir (proplists:get_value 'priv_dir config)))
+    (case (typed_driver:compile_forms forms "transparent_match.tlfe" priv-dir)
+      (`#(ok transparent_match ,beam-bin)
+       (code:purge 'transparent_match)
+       (let ((`#(module transparent_match)
+              (code:load_binary 'transparent_match "transparent_match.beam" beam-bin)))
+         ;; Exact assertion: transparent unwraps the bare value
+         (let ((result (call 'transparent_match 'unwrap-id 42)))
+           (case result
+             (42 'ok)
+             (other (ct:fail `#(wrong_transparent_match ,other)))))))
       (`#(error ,reason)
        (ct:fail `#(compile_failed ,reason))))))
 
