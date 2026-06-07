@@ -2,11 +2,11 @@
      <p align="center"><img src="priv/images/liffybot-typed.png" width="300"></p> -->
 <p align="center"><em>(LiffyBot logo coming soon — type theory on the mug)</em></p>
 
-# typed
+# lfe/typed
 
 **An experiment in a statically typed LFE with algebraic data types.**
 
-> ⚠️ **Status: early & experimental.** `typed` is under active design. The
+> ⚠️ **Status: early & experimental.** `lfe/typed` is under active design. The
 > *architecture* is settled and the compile chain works end-to-end; the *surface
 > syntax* shown below is **provisional** — we've had only a few conversations about
 > it, and most of that work is still ahead. Treat every code sample here as a
@@ -16,7 +16,7 @@
 
 ## What is it?
 
-`typed` adds **static types and algebraic data types (ADTs)** to
+`lfe/typed` adds **static types and algebraic data types (ADTs)** to
 [LFE](https://lfe.io) (Lisp Flavoured Erlang) — as a **library plus a build step**,
 not a fork. You keep writing LFE. You opt into typed forms where you want them. The
 output is ordinary BEAM bytecode that any LFE, Erlang, or Elixir code can call. There
@@ -93,7 +93,7 @@ A few convictions, earned from studying the field (see [`docs/audits/`](docs/aud
   product — and designing it well for humans turns out to be the same work as
   designing it well for LLMs.
 - **Our checker is load-bearing.** Dialyzer is wonderful, but it becomes unreliable
-  for LFE the moment macros and includes enter the picture — and a typed layer is
+  for LFE the moment macros and user LFE includes enter the picture — and a typed layer is
   nothing but macros and metaprogramming. So `typed` does its own checking, and aims
   to *reject* incorrect programs (which success-typing tools deliberately never do).
 - **ADTs fit the BEAM glove.** Erlang already represents sum types as tagged tuples
@@ -105,11 +105,11 @@ A few convictions, earned from studying the field (see [`docs/audits/`](docs/aud
 
 ## How it works (the short version)
 
-`typed` **owns the compile chain**, much like Gleam:
+`lfe/typed` **owns the compile chain**, much like Gleam:
 
 ```
-your .lfe  →  typed-check (Rust)            →  thin Erlang driver        →  BEAM
-              • read source (line+column)      • lfe_codegen + compile:forms
+your .lfe  →  typed-check (Rust)        →       thin Erlang driver        →       BEAM
+              • read source (line+column)       • lfe_codegen + compile:forms
               • check; reject with diagnostics  • original-source lines injected
               • lower to vanilla LFE
 ```
@@ -155,9 +155,9 @@ NIF boundaries.
 
 ---
 
-## Status, honestly
+## Status
 
-`typed` does not work yet as a thing you can `rebar3 add` and start typing your
+`lfe/typed` does not work yet as a thing you can `rebar3 add` and start typing your
 modules with. What *does* exist is a settled architecture, a working compile chain,
 and a build plan executed under real verification discipline. The fun part — the
 syntax, the ADTs, the diagnostics — is happening now.
@@ -175,6 +175,7 @@ feedback (especially on syntax) is enormously welcome.
 - Inspiration from **Gleam**, **Coalton**, **Typed Racket**, **Hackett**, and the
   lessons of **Alpaca**.
 - The S-expression reader is adapted from **[oxur](https://github.com/oxur/oxur)**.
+- Some of the syntax ideas (and all of the bravery) come from [Lykn](https://lykn.pl/).
 
 ## License
 
