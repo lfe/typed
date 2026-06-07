@@ -63,8 +63,8 @@ fn f4_malformed_diagnostic_has_line_col() {
     let err = typed_surface::extract_typed_fun(&form).unwrap_err();
     match err {
         crate::error::CheckError::Diagnostic { pos, message, .. } => {
-            assert!(pos.line >= 1);
-            assert!(pos.column >= 1);
+            assert_eq!(pos.line, 1, "diagnostic line");
+            assert_eq!(pos.column, 1, "diagnostic column");
             assert!(
                 message.contains("missing") || message.contains("requires"),
                 "message was: {}", message

@@ -16,12 +16,11 @@ jobs:
       matrix:
         otp: ['28']
         repr-backend: ['tagged-tuple']
-        include:
-          # native-record axis — stubbed, needs OTP 29+
-          # Uncomment when OTP 29 runners are available:
-          # - otp: '29'
-          #   repr-backend: 'native-record'
-          []
+        # native-record axis — stubbed, needs OTP 29+
+        # Uncomment when OTP 29 runners are available:
+        # include:
+        #   - otp: '29'
+        #     repr-backend: 'native-record'
 
     container:
       image: erlang:${{ matrix.otp }}

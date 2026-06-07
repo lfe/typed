@@ -9,6 +9,7 @@
          f7_compile_and_call/1,
          f8_runtime_line_injection/1,
          f9_compile_error_line_injection/1,
+         f9b_compile_error_file_injection/1,
          f10_checker_gates_malformed/1]).
 
 all() ->
@@ -16,6 +17,7 @@ all() ->
      f7_compile_and_call,
      f8_runtime_line_injection,
      f9_compile_error_line_injection,
+     f9b_compile_error_file_injection,
      f10_checker_gates_malformed].
 
 suite() ->
@@ -25,8 +27,6 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir = ?config(priv_dir, Config),
     ProjectRoot = find_project_root(),
     CheckerBin = filename:join([ProjectRoot, "checker", "target", "debug", "typed-check"]),
     case filelib:is_file(CheckerBin) of
@@ -87,6 +87,29 @@ f9_compile_error_line_injection(Config) ->
     PrivDir = ?config(priv_dir, Config),
     {error, {lint, Errors}} = typed_driver:compile_forms(Forms, "unbound.lfe", PrivDir),
     [{71, lfe_lint, {unbound_symbol, totally_unbound_var}}] = Errors,
+    ok.
+
+f9b_compile_error_file_injection(_Config) ->
+    OrigFile = "injected_origin.tlfe",
+    InjectedLine = 9042,
+    Forms = [
+        {['define-module', f9bmod, [], [[export, [ok_fn, 0]]]], 1},
+        {['define-function', ok_fn, [],
+          [lambda, [], [quote, ok]]], InjectedLine}
+    ],
+    Ci = #cinfo{file = OrigFile, opts = [debug_info], ipath = ["."]},
+    {ok, f9bmod, AST0, _} = lfe_codegen:module(Forms, Ci),
+    BadFunc = {function, InjectedLine, bad_fn, 1,
+               [{clause, InjectedLine,
+                 [{var, InjectedLine, 'X'}], [],
+                 [{var, InjectedLine, 'Unbound'},
+                  {var, InjectedLine, 'X'}]}]},
+    AST1 = AST0 ++ [BadFunc],
+    CompOpts = [{source, OrigFile}, return, binary, debug_info],
+    {error, Errors, _Warnings} = compile:forms(AST1, CompOpts),
+    [{OrigFile, FileErrors}] = Errors,
+    {InjectedLine, erl_lint, {unbound_var, 'Unbound'}} =
+        lists:keyfind(InjectedLine, 1, FileErrors),
     ok.
 
 f10_checker_gates_malformed(Config) ->

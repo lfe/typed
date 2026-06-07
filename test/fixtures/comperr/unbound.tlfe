@@ -1,6 +1,6 @@
 ;; Line 1 - comperr/unbound.lfe
 ;; Fixture for F-9: compile error with line injection.
-;; The defun/typed is deliberately on line 55 so the injected line is provable.
+;; The defun/typed is deliberately on line 71 so the injected line is provable.
 ;; 4
 ;; 5
 ;; 6
