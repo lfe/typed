@@ -32,20 +32,7 @@ fn guard_for_adt(adt: &AdtDef, var_name: &str, otp_version: u32) -> Option<SExp>
             if adt.is_all_nullary() {
                 return guard_for_enum_adt(adt, var_name);
             }
-            let has_nullary = adt.constructors.iter().any(|c| c.fields.is_empty());
-            if has_nullary {
-                // Mixed: some nullary (atoms) + some with fields (tuples)
-                Some(SExp::List(List::new(
-                    vec![
-                        sym("orelse"),
-                        guard_call("is_tuple", var_name),
-                        guard_call("is_atom", var_name),
-                    ],
-                    dp(),
-                )))
-            } else {
-                Some(guard_call("is_tuple", var_name))
-            }
+            guard_for_tagged_tuple_adt(adt, var_name)
         }
         ReprKind::Enum => guard_for_enum_adt(adt, var_name),
         ReprKind::Transparent => {
@@ -58,6 +45,60 @@ fn guard_for_adt(adt: &AdtDef, var_name: &str, otp_version: u32) -> Option<SExp>
         }
         ReprKind::NativeRecord | ReprKind::Default => Some(guard_call("is_tuple", var_name)),
     }
+}
+
+fn guard_for_tagged_tuple_adt(adt: &AdtDef, var_name: &str) -> Option<SExp> {
+    let mut ctor_guards = Vec::new();
+
+    for ctor in &adt.constructors {
+        let tag = to_snake_case(&ctor.name);
+        if ctor.fields.is_empty() {
+            // Nullary: X =:= 'tag'
+            ctor_guards.push(SExp::List(List::new(
+                vec![sym("=:="), sym(var_name), quoted_atom(&tag)],
+                dp(),
+            )));
+        } else {
+            // With fields: (andalso (is_tuple X) (=:= (element 1 X) 'tag) (=:= (tuple_size X) N))
+            let arity = ctor.fields.len() + 1; // tag + fields
+            let checks = vec![
+                sym("andalso"),
+                guard_call("is_tuple", var_name),
+                SExp::List(List::new(
+                    vec![
+                        sym("=:="),
+                        SExp::List(List::new(
+                            vec![
+                                sym("element"),
+                                SExp::Number(Number::new("1", dp())),
+                                sym(var_name),
+                            ],
+                            dp(),
+                        )),
+                        quoted_atom(&tag),
+                    ],
+                    dp(),
+                )),
+                SExp::List(List::new(
+                    vec![
+                        sym("=:="),
+                        SExp::List(List::new(vec![sym("tuple_size"), sym(var_name)], dp())),
+                        SExp::Number(Number::new(arity.to_string(), dp())),
+                    ],
+                    dp(),
+                )),
+            ];
+            ctor_guards.push(SExp::List(List::new(checks, dp())));
+        }
+    }
+
+    if ctor_guards.len() == 1 {
+        return Some(ctor_guards.into_iter().next().unwrap());
+    }
+
+    let mut or_elems = vec![sym("orelse")];
+    or_elems.extend(ctor_guards);
+    Some(SExp::List(List::new(or_elems, dp())))
 }
 
 fn guard_for_enum_adt(adt: &AdtDef, var_name: &str) -> Option<SExp> {

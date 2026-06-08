@@ -24,12 +24,15 @@
    ;; M4-3: wrong arg raises structured type-error
    (m4_3_wrong_arg_crashes 1)
    ;; M4-4: structured error has expected fields
-   (m4_4_structured_error_fields 1)))
+   (m4_4_structured_error_fields 1)
+   ;; M4-2: wrong-tagged tuple rejected by ADT guard
+   (m4_2_wrong_tag_rejected 1)))
 
 (defun all ()
   '(m4_1_correct_call_passes
     m4_3_wrong_arg_crashes
-    m4_4_structured_error_fields))
+    m4_4_structured_error_fields
+    m4_2_wrong_tag_rejected))
 
 (defun suite () `(#(timetrap #(seconds 60))))
 
@@ -114,6 +117,35 @@
                      ("oops" 'ok)
                      (other (ct:fail `#(wrong_got_value ,other)))))
                   (other (ct:fail `#(wrong_fields ,other))))))))))
+      (`#(error ,reason)
+       (ct:fail `#(compile_failed ,reason))))))
+
+;;; M4-2: wrong-tagged tuple rejected by ADT head guard
+
+(defun m4_2_wrong_tag_rejected (config)
+  (let* ((forms (check-and-decode config "typecheck/readme" "describe_good.tlfe"))
+         (priv-dir (proplists:get_value 'priv_dir config)))
+    (case (typed_driver:compile_forms forms "describe_good.tlfe" priv-dir)
+      (`#(ok describe_good ,beam-bin)
+       (code:purge 'describe_good)
+       (let ((`#(module describe_good)
+              (code:load_binary 'describe_good "describe_good.beam" beam-bin)))
+         ;; Correct value passes
+         (let ((r (call 'describe_good 'describe 'pending)))
+           (case r
+             ("queued" 'ok)
+             (other (ct:fail `#(correct_value_failed ,other)))))
+         ;; Wrong-tagged tuple raises structured type-error
+         (try (call 'describe_good 'describe (tuple 'bogus 1))
+           (catch
+             (`#(error #(type_error ,info) ,_)
+              (let ((expected (proplists:get_value 'expected info))
+                    (function (proplists:get_value 'function info)))
+                (case (tuple expected function)
+                  (#(order-status describe) 'ok)
+                  (other (ct:fail `#(wrong_error_fields ,other))))))
+             (`#(error function_clause ,_)
+              (ct:fail '#(got_function_clause_not_type_error)))))))
       (`#(error ,reason)
        (ct:fail `#(compile_failed ,reason))))))
 
