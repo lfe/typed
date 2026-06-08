@@ -1,0 +1,11 @@
+(defmodule qq_tuple_pattern
+  (export (classify 1)))
+
+(defun/typed classify
+  :args ((os-tuple dynamic))
+  :returns dynamic
+  :body (case os-tuple
+          (#(unix linux) 'linux)
+          (#(unix darwin) 'macos)
+          (`#(unix ,unsup) unsup)
+          (_ 'other)))

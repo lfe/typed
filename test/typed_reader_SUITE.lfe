@@ -32,14 +32,18 @@
    (d3_binary_value 1)
    ;; D-4: Quasiquote
    (d4_quasiquote_unquote 1)
-   (d4_quasiquote_splice 1)))
+   (d4_quasiquote_splice 1)
+   (d4_qq_tuple_pattern_binds 1)
+   (d4_qq_tuple_expression 1)))
 
 (defun all ()
   '(d2_tuple_expression
     d2_tuple_pattern
     d3_binary_value
     d4_quasiquote_unquote
-    d4_quasiquote_splice))
+    d4_quasiquote_splice
+    d4_qq_tuple_pattern_binds
+    d4_qq_tuple_expression))
 
 (defun suite () `(#(timetrap #(seconds 60))))
 
@@ -110,6 +114,26 @@
     (case result
       ((list 'start 'a 'b 'end) 'ok)
       (other (ct:fail `#(wrong_splice ,other))))))
+
+;;; ============================================================
+;;; D-4: Quasiquoted tuple with unquote (Duncan's exact case)
+;;; ============================================================
+
+(defun d4_qq_tuple_pattern_binds (config)
+  (compile-and-load config "reader" "qq_tuple_pattern.lfet" 'qq_tuple_pattern)
+  (let ((c1 (qq_tuple_pattern:classify #(unix linux)))
+        (c2 (qq_tuple_pattern:classify #(unix freebsd)))
+        (c3 (qq_tuple_pattern:classify #(win32 nt))))
+    (case (tuple c1 c2 c3)
+      (#(linux freebsd other) 'ok)
+      (other (ct:fail `#(wrong_classify ,other))))))
+
+(defun d4_qq_tuple_expression (config)
+  (compile-and-load config "reader" "qq_tuple_expr.lfet" 'qq_tuple_expr)
+  (let ((result (qq_tuple_expr:wrap 42)))
+    (case result
+      (#(ok 42) 'ok)
+      (other (ct:fail `#(wrong_wrap ,other))))))
 
 ;;; ============================================================
 ;;; Helpers

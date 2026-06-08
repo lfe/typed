@@ -408,13 +408,62 @@ fn qq_expand(template: &SExp) -> SExp {
         SExp::List(l) => qq_expand_list(&l.elements),
         SExp::Symbol(s) => SExp::List(List::new(vec![sym("quote"), SExp::Symbol(s.clone())], dp())),
         SExp::Tuple(t) => {
-            let expanded: Vec<SExp> = t.elements.iter().map(qq_expand).collect();
-            let mut elems = vec![sym("tuple")];
-            elems.extend(expanded);
-            SExp::List(List::new(elems, dp()))
+            if tuple_has_unquote(t) {
+                let mut elems = vec![sym("tuple")];
+                for elem in &t.elements {
+                    elems.push(qq_expand_tuple_elem_for_pattern(elem));
+                }
+                SExp::List(List::new(elems, dp()))
+            } else {
+                let expanded: Vec<SExp> = t.elements.iter().map(qq_expand_tuple_elem).collect();
+                SExp::Tuple(Tuple::new(expanded, dp()))
+            }
         }
         other => other.clone(),
     }
+}
+
+fn qq_expand_tuple_elem(elem: &SExp) -> SExp {
+    match elem {
+        SExp::List(l) if l.elements.len() == 2 => {
+            if let SExp::Symbol(s) = &l.elements[0] {
+                if s.value == "comma" {
+                    return expand_quasiquotes(&l.elements[1]);
+                }
+            }
+            qq_expand(elem)
+        }
+        SExp::Symbol(s) => SExp::Symbol(s.clone()),
+        other => qq_expand(other),
+    }
+}
+
+fn qq_expand_tuple_elem_for_pattern(elem: &SExp) -> SExp {
+    match elem {
+        SExp::List(l) if l.elements.len() == 2 => {
+            if let SExp::Symbol(s) = &l.elements[0] {
+                if s.value == "comma" {
+                    return expand_quasiquotes(&l.elements[1]);
+                }
+            }
+            qq_expand(elem)
+        }
+        SExp::Symbol(s) => SExp::List(List::new(vec![sym("quote"), SExp::Symbol(s.clone())], dp())),
+        other => qq_expand(other),
+    }
+}
+
+fn tuple_has_unquote(t: &Tuple) -> bool {
+    t.elements.iter().any(|e| {
+        if let SExp::List(l) = e {
+            if l.elements.len() == 2 {
+                if let SExp::Symbol(s) = &l.elements[0] {
+                    return s.value == "comma";
+                }
+            }
+        }
+        false
+    })
 }
 
 fn qq_expand_list(elements: &[SExp]) -> SExp {

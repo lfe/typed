@@ -200,7 +200,7 @@ the typed/untyped boundary, typed records (`defrecord/typed`) with generated
 constructors, accessors, and functional updaters — all type-aware — and cross-module
 type references (`mod:type` and `import-types`) with project scanning. The diagnostic
 engine renders Gleam-grade errors with span+caret in both human and JSON formats.
-98 Rust tests, 79 LFE CT tests, `make check` clean.
+98 Rust tests, 81 LFE CT tests, `make check` clean.
 
 If the ideas here interest you, the design docs are the best place to start, and
 feedback (especially on syntax) is enormously welcome.

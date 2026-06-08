@@ -1,0 +1,7 @@
+(defmodule qq_tuple_expr
+  (export (wrap 1)))
+
+(defun/typed wrap
+  :args ((x dynamic))
+  :returns dynamic
+  :body `#(ok ,x))
