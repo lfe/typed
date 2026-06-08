@@ -80,6 +80,36 @@ and P-5 was mislabeled. **M5 iteration 2** (small cleanup): add the 3 P-6 break-
 tests on `orders.tlfe` — including the static checker-rejection path — relabel P-5 deferred,
 and tighten e4 to exact strings.
 
+## CDC Re-Verification (Iteration 2)
+
+**Verifier:** Claude (CDC), 2026-06-07, against `57b88a0` / `93920d4`. **Method:** inspected
+the two new fixtures + the three new dogfood tests + the e4 change + the P-5 row.
+
+**ACCEPTED — M5 CLOSED.** The headline gap is genuinely fixed:
+
+- **P-6 ✅** — the **static checker-rejection path on the real module now exists.**
+  `orders_bad_return.tlfe` and `orders_nonexhaustive.tlfe` are run through the checker binary;
+  both asserted to **exit non-zero** with the teaching text (wrong-return pins the specific
+  sentence `body returns \`number\`, but contract declares \`:returns string\``; non-exhaustive
+  names both missing ctors Delivered + Cancelled). `p6_decode_error_rendered` is **exact**
+  (`"type error: expected string at .tracking, got 999"`). Guard-crash test tightened to the
+  full structured map. This is the criterion met — Goal 2 (teaching errors) now demonstrated on
+  real code.
+- **P-5 ✅** correctly re-classified **deferred** with a re-entry note (status honesty fixed).
+- **e4 ✅** return-face now exact (`"type error: expected 'order-status', got 42"`).
+
+**Minor residue (noted, not blocking):** a few integration assertions still use `string:find`
+substring matches rather than exact snapshots — the non-exhaustive diagnostic (checks ctor
+names appear, not the full sentence) and the e4 crash-face. This is defensible: the **exact**
+diagnostic content is already snapshot-tested in the Rust suite (M2/M3); these CT tests are
+end-to-end integration that the right diagnostic *fires through the full chain*, where matching
+the teaching sentence rather than full positional stderr (file paths/lines) is reasonable. Not
+worth a 3rd iteration. If revisited, tighten the non-exhaustive CT to the exact diagnostic
+sentence.
+
+**Disposition:** M5 CLOSED (CDC-accepted) at `93920d4` (ledger `57b88a0`). 63 Rust / 53 CT,
+`make check` clean. M0–M5 complete.
+
 ## Closure
 
 ## CC Close-Out (Iteration 2)
