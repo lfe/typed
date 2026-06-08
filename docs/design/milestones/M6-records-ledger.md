@@ -78,6 +78,33 @@ enforcement is sound, registry handoff verified. But R-7 is overclaimed: the sta
 construction diagnostic doesn't exist. **M6 iteration 2** to land it. See
 [M6-cleanup-cc-prompt.md](M6-cleanup-cc-prompt.md).
 
+### CDC Re-Verification (Iteration 2) — against `fb0b50c`
+
+**ACCEPTED — M6 CLOSED.** R-7's static half is now genuinely implemented and tested:
+
+- **Root-cause wiring fixed.** `main.rs` registers generated `make-`/accessor/`set-` `FunSig`s
+  into `all_fun_sigs` (keyed off the record shape: 1 ctor, ctor name == type name). So
+  `synth_call`'s normal path now statically checks construction args and synthesizes `make-`
+  to the record type.
+- **Static rejection — verified both ways.** Rust `r7_make_order_static_rejects_wrong_field_type`
+  asserts the **exact** diagnostic `argument \`id\` expected type \`integer\`, got \`string\``;
+  CT `r7_static_bad_field_type` runs the real binary on `order_bad_make.tlfe`, asserts
+  **non-zero exit** + the teaching sentence (end-to-end proof the wiring fires). This is the
+  Goal-2 static path on the most common record op.
+- **make- synthesizes to the record type** — Rust `r7_make_order_synthesizes_record_type`
+  (exact `Adt("order")`, no longer `Dynamic`).
+- **Unknown-field accessor** — Rust `r7_unknown_field_accessor_diagnostic` exact, teaching-grade
+  (`unknown field \`bogus\` on record \`order\`; available fields: id, status, total`); CT
+  `r7_static_unknown_field` end-to-end (non-zero exit).
+- **Runtime tests retained** (r2/r4) — runtime enforcement still holds; the static half was
+  ADDED, not swapped.
+- 74 Rust / 65 CT / `make check` clean.
+
+**Disposition:** M6 CLOSED (CDC-accepted) at `fb0b50c`. All 9 rows done. Records are first-class
+— static + runtime, type-aware accessors, registry-serialized (M7-ready). Minor residue (the
+CT integration tests use `string:find`, not exact) is the same defensible pattern accepted in
+M5: exact diagnostics are pinned in the Rust suite; the CT proves end-to-end firing.
+
 ## Closure
 
 _(Filled in by CC at close: per-row walk, totals, test summary, SHA.)_
