@@ -1,0 +1,19 @@
+;; runtime/guarded.tlfe
+;; M4-3: A typed function with guards — wrong arg raises structured type-error.
+;; 3
+;; 4
+;; 5
+;; 6
+;; 7
+(defmodule guarded
+  (export (double 1) (greet 1)))
+
+(defun/typed double
+  :args ((x integer))
+  :returns integer
+  :body (+ x x))
+
+(defun/typed greet
+  :args ((name string))
+  :returns string
+  :body (++ "hello " name))
