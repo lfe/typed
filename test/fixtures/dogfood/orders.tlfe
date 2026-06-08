@@ -1,0 +1,53 @@
+;; orders.tlfe — A realistic typed LFE module for M5 dogfood.
+;; An order management domain: statuses, line items, totals, decode.
+;; 3
+;; 4
+;; 5
+(defmodule orders
+  (export (status-label 1)
+          (is-complete 1)
+          (line-total 2)
+          (apply-discount 2)
+          (decode-order-status 1)
+          (validate-order-status 2)))
+
+;; Order status — a sum type with mixed nullary + with-fields constructors
+(deftype order-status
+  (repr tagged-tuple)
+  (Pending)
+  (Processing (worker-id integer))
+  (Shipped (tracking string))
+  (Delivered)
+  (Cancelled (reason string)))
+
+;; Get a human-readable label for a status
+(defun/typed status-label
+  :args ((s order-status))
+  :returns string
+  :body (case/typed s
+          ((Pending) "pending")
+          ((Processing id) "processing")
+          ((Shipped t) (++ "shipped: " t))
+          ((Delivered) "delivered")
+          ((Cancelled r) (++ "cancelled: " r))))
+
+;; Check if an order is in a terminal state
+(defun/typed is-complete
+  :args ((s order-status))
+  :returns atom
+  :body (case/typed s
+          ((Delivered) 'true)
+          ((Cancelled r) 'true)
+          (_ 'false)))
+
+;; Calculate line item total: quantity * unit-price
+(defun/typed line-total
+  :args ((qty integer) (price integer))
+  :returns integer
+  :body (* qty price))
+
+;; Apply a percentage discount (0-100) to a price
+(defun/typed apply-discount
+  :args ((price integer) (pct integer))
+  :returns integer
+  :body (- price (div (* price pct) 100)))

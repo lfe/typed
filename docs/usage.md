@@ -1,0 +1,168 @@
+# Getting Started with `lfe/typed`
+
+> A guide to adding static types and ADTs to your LFE project.
+
+## Prerequisites
+
+- Erlang/OTP 28+
+- LFE 2.2.1+
+- Rust toolchain (for building the checker)
+- rebar3
+
+## Project Setup
+
+1. Clone `lfe/typed` alongside your project.
+2. Build the Rust checker:
+
+```sh
+cd typed/checker && cargo build
+```
+
+3. Add `typed` as a dependency in your `rebar.config` and ensure LFE is available.
+
+## Writing a Typed Module
+
+Typed LFE files use the `.tlfe` extension. A typed module looks like this:
+
+```lisp
+(defmodule orders
+  (export (status-label 1)
+          (decode-order-status 1)
+          (validate-order-status 2)))
+
+;; Define an algebraic data type
+(deftype order-status
+  (repr tagged-tuple)
+  (Pending)
+  (Shipped (tracking string))
+  (Cancelled (reason string)))
+
+;; A typed function with a contract
+(defun/typed status-label
+  :args ((s order-status))
+  :returns string
+  :body (case/typed s
+          ((Pending) "pending")
+          ((Shipped t) (++ "shipped: " t))
+          ((Cancelled r) (++ "cancelled: " r))))
+```
+
+### Key forms
+
+- **`deftype`** declares an algebraic data type with named-field constructors.
+  Optional `(repr <backend>)` clause selects the runtime representation.
+- **`defun/typed`** declares a function with a type contract (`:args`, `:returns`,
+  `:body`). The checker verifies the body against the contract.
+- **`case/typed`** is exhaustive pattern matching over an ADT. The checker rejects
+  non-exhaustive matches, naming every missing constructor.
+- **Constructor calls** like `(Shipped :tracking "TRK123")` construct ADT values.
+
+### Type annotations
+
+Types in `:args` and `:returns` can be:
+- **Built-in:** `integer`, `float`, `number`, `atom`, `boolean`, `binary`, `string`,
+  `list`, `map`, `dynamic`
+- **ADT names:** any `deftype`-declared type (e.g. `order-status`)
+
+### Representation backends
+
+| Backend | When | Runtime shape |
+|---------|------|--------------|
+| `tagged-tuple` (default <29) | General sum types | `{tag, field1, ...}` |
+| `enum` | All-nullary sums | atoms |
+| `transparent` | Single-constructor newtypes | the payload itself |
+| `native-record` (29+) | True distinct type | `#Ctor{...}` |
+
+### Generated functions
+
+For each `deftype`, the checker generates:
+- `validate-<typename>/2` — deep recursive validator
+- `decode-<typename>/1` — graceful `dynamic → T` boundary
+
+**You must manually export these** in your module's `(export ...)`.
+
+## Running the Checker
+
+```sh
+# Check a single file
+typed/checker/target/debug/typed-check your-module.tlfe --output your-module.eetf
+
+# Then compile through the driver
+erl -noshell -pa typed/ebin -pa lfe/ebin -eval '
+  {ok, Bin} = file:read_file("your-module.eetf"),
+  Forms = binary_to_term(Bin),
+  typed_driver:compile_forms(Forms, "your-module.tlfe", "."),
+  halt().
+'
+```
+
+## Reading Type Errors
+
+### Compile-time: wrong return type
+
+```
+error[E001]: body returns `integer`, but contract declares `:returns binary`
+  --> greeting.tlfe:3:1
+     |
+   3 | (defun/typed oops
+     | ^
+```
+
+### Compile-time: non-exhaustive match
+
+```
+error[E100]: non-exhaustive pattern match on type `order-status`
+  --> orders.tlfe:10:1
+      |
+   10 | (case/typed s
+      | ^
+   |
+   = These values are not matched:
+       - Shipped
+       - Cancelled
+   = Hint: add clauses for the missing constructor(s), or use `_` as a catch-all.
+```
+
+### Runtime: wrong-typed argument (guard crash)
+
+```erlang
+{type_error, #{expected => integer, got => "hello",
+               function => double, arg => 1, path => []}}
+```
+
+### Runtime: invalid decode input (graceful error)
+
+```erlang
+{error, {type_error, #{expected => string, got => 999,
+                        path => [tracking]}}}
+```
+
+Use `typed_rt:render_type_error/1` to turn either into a teaching-grade string:
+
+```
+type error: expected string at .tracking, got 999
+```
+
+## The `dynamic` Boundary
+
+Calls to untyped/unknown functions synthesize `dynamic`. `dynamic` is compatible
+with any expected type — the gradual escape hatch. This means typed code can call
+untyped Erlang/LFE freely; the checker just can't verify those calls.
+
+Runtime enforcement at the boundary uses `decode-<typename>/1`:
+
+```lisp
+;; At your HTTP handler / message boundary:
+(case (orders:decode-order-status user-input)
+  (#(ok status) (process-order status))
+  (#(error te) (respond-400 (typed_rt:render_type_error te))))
+```
+
+## Current Limitations
+
+See `docs/design/M5-gap-inventory.md` for the full list. Key ones:
+- No cross-module type references (types must be in the same `.tlfe` file)
+- No `when` guards in `case/typed` patterns
+- No `let` type annotations (bindings typed by synthesis)
+- Binary literals (`#"..."`) not yet supported by the parser
+- Native-record backend needs OTP 29+
