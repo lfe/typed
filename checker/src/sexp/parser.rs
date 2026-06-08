@@ -173,7 +173,7 @@ impl Parser {
         let token = self.current_token()?.clone();
         let pos = token.pos;
         self.advance(); // consume HashParen token
-        let mut elements = vec![SExp::Symbol(Symbol::new("tuple", pos))];
+        let mut elements = Vec::new();
         loop {
             if self.is_at_end() {
                 return Err(ParseError::UnterminatedList { pos });
@@ -184,7 +184,7 @@ impl Parser {
             }
             elements.push(self.parse_sexp()?);
         }
-        Ok(SExp::List(List::new(elements, pos)))
+        Ok(SExp::Tuple(Tuple::new(elements, pos)))
     }
 
     fn parse_binary(&mut self) -> Result<SExp> {

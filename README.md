@@ -179,8 +179,9 @@ This project was planned before it was built. The reasoning is all in the open:
 - **M8 — Extension standardization** ✅ *(.tlfe → .lfet; provider/scanner globs; mixed .lfet/.lfe separation)*
 - **M9 — Reader correctness** ✅ *(char, tuple, binary, quasiquote/unquote, cons dot; all 5 dirs files parse)*
 - **M9 — Reader correctness** *(full LFE reader forms in the sexp reader: tuple `#(…)`, binary `#"…"`, char `#\c`, quasiquote/unquote `` ` `` `,` `,@`)*
-- **M10 — Surface features** *(multi-clause `defun/typed` heads, `when` guards in clauses/patterns — the surface needed to type real LFE)*
-- **M11 — Real-world port** *(port an existing module — [lfex/dirs](https://github.com/lfex/dirs) — to typed, reality-grading the design)*
+- **M10 — Naming convention** *(`deftype` → `deftype/typed`; formalize the `<lfe-form>/typed` convention across all typed macros)*
+- **M11 — Surface features** *(multi-clause `defun/typed` heads, `when` guards in clauses/patterns — the surface needed to type real LFE)*
+- **M12 — Real-world port** *(port an existing module — [lfex/dirs](https://github.com/lfex/dirs) — to typed, reality-grading the design)*
 
 Further out: per-expression source mapping (an upstream collaboration with LFE
 itself), and a typed-ADT ↔ Rust bridge for [Rustler](https://github.com/rusterlium/rustler)
@@ -199,7 +200,7 @@ the typed/untyped boundary, typed records (`defrecord/typed`) with generated
 constructors, accessors, and functional updaters — all type-aware — and cross-module
 type references (`mod:type` and `import-types`) with project scanning. The diagnostic
 engine renders Gleam-grade errors with span+caret in both human and JSON formats.
-98 Rust tests, 74 LFE CT tests, `make check` clean.
+98 Rust tests, 79 LFE CT tests, `make check` clean.
 
 If the ideas here interest you, the design docs are the best place to start, and
 feedback (especially on syntax) is enormously welcome.

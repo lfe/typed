@@ -62,6 +62,13 @@ fn encode_sexp(sexp: &SExp, buf: &mut Vec<u8>) {
             }
             buf.push(NIL_TAG);
         }
+        SExp::Tuple(t) => {
+            buf.push(SMALL_TUPLE_TAG);
+            buf.push(t.elements.len() as u8);
+            for elem in &t.elements {
+                encode_sexp(elem, buf);
+            }
+        }
     }
 }
 

@@ -1837,13 +1837,12 @@ fn d2_tuple_literal() {
     let input = "#(unix linux)";
     let form = Parser::parse_str(input).unwrap();
     match &form {
-        SExp::List(l) => {
-            assert_eq!(l.elements.len(), 3);
-            assert!(matches!(&l.elements[0], SExp::Symbol(s) if s.value == "tuple"));
-            assert!(matches!(&l.elements[1], SExp::Symbol(s) if s.value == "unix"));
-            assert!(matches!(&l.elements[2], SExp::Symbol(s) if s.value == "linux"));
+        SExp::Tuple(t) => {
+            assert_eq!(t.elements.len(), 2);
+            assert!(matches!(&t.elements[0], SExp::Symbol(s) if s.value == "unix"));
+            assert!(matches!(&t.elements[1], SExp::Symbol(s) if s.value == "linux"));
         }
-        other => panic!("expected List, got: {:?}", other),
+        other => panic!("expected Tuple, got: {:?}", other),
     }
 }
 
@@ -1852,11 +1851,10 @@ fn d2_tuple_empty() {
     let input = "#()";
     let form = Parser::parse_str(input).unwrap();
     match &form {
-        SExp::List(l) => {
-            assert_eq!(l.elements.len(), 1);
-            assert!(matches!(&l.elements[0], SExp::Symbol(s) if s.value == "tuple"));
+        SExp::Tuple(t) => {
+            assert_eq!(t.elements.len(), 0);
         }
-        other => panic!("expected List, got: {:?}", other),
+        other => panic!("expected Tuple, got: {:?}", other),
     }
 }
 

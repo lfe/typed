@@ -1,0 +1,7 @@
+(defmodule binary_test
+  (export (greeting 0)))
+
+(defun/typed greeting
+  :args ()
+  :returns binary
+  :body #"hello")

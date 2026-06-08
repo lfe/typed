@@ -376,6 +376,99 @@ fn deserialize_ctor(sexp: &SExp) -> Result<CtorDef, String> {
     })
 }
 
+pub fn expand_quasiquotes(sexp: &SExp) -> SExp {
+    match sexp {
+        SExp::List(l) if l.elements.len() == 2 => {
+            if let SExp::Symbol(s) = &l.elements[0] {
+                if s.value == "backquote" {
+                    return qq_expand(&l.elements[1]);
+                }
+            }
+            let elems = l.elements.iter().map(expand_quasiquotes).collect();
+            SExp::List(List::new(elems, l.pos))
+        }
+        SExp::List(l) => {
+            let elems = l.elements.iter().map(expand_quasiquotes).collect();
+            SExp::List(List::new(elems, l.pos))
+        }
+        other => other.clone(),
+    }
+}
+
+fn qq_expand(template: &SExp) -> SExp {
+    match template {
+        SExp::List(l) if l.elements.len() == 2 => {
+            if let SExp::Symbol(s) = &l.elements[0] {
+                if s.value == "comma" {
+                    return expand_quasiquotes(&l.elements[1]);
+                }
+            }
+            qq_expand_list(&l.elements)
+        }
+        SExp::List(l) => qq_expand_list(&l.elements),
+        SExp::Symbol(s) => SExp::List(List::new(vec![sym("quote"), SExp::Symbol(s.clone())], dp())),
+        SExp::Tuple(t) => {
+            let expanded: Vec<SExp> = t.elements.iter().map(qq_expand).collect();
+            let mut elems = vec![sym("tuple")];
+            elems.extend(expanded);
+            SExp::List(List::new(elems, dp()))
+        }
+        other => other.clone(),
+    }
+}
+
+fn qq_expand_list(elements: &[SExp]) -> SExp {
+    if elements.is_empty() {
+        return SExp::Nil(Nil::new(dp()));
+    }
+
+    let mut parts: Vec<SExp> = Vec::new();
+    let mut has_splice = false;
+
+    for elem in elements {
+        if let SExp::List(l) = elem {
+            if l.elements.len() == 2 {
+                if let SExp::Symbol(s) = &l.elements[0] {
+                    if s.value == "comma-at" {
+                        has_splice = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if has_splice {
+        for elem in elements {
+            if let SExp::List(l) = elem {
+                if l.elements.len() == 2 {
+                    if let SExp::Symbol(s) = &l.elements[0] {
+                        if s.value == "comma-at" {
+                            parts.push(expand_quasiquotes(&l.elements[1]));
+                            continue;
+                        }
+                    }
+                }
+            }
+            parts.push(SExp::List(List::new(
+                vec![sym("list"), qq_expand(elem)],
+                dp(),
+            )));
+        }
+        let mut result = parts.pop().unwrap_or(SExp::Nil(Nil::new(dp())));
+        while let Some(part) = parts.pop() {
+            result = SExp::List(List::new(vec![sym("++"), part, result], dp()));
+        }
+        result
+    } else {
+        let mut elems = vec![sym("list")];
+        for elem in elements {
+            elems.push(qq_expand(elem));
+        }
+        SExp::List(List::new(elems, dp()))
+    }
+}
+
 fn strip_positions(sexp: &SExp) -> SExp {
     match sexp {
         SExp::Symbol(s) => SExp::Symbol(Symbol::new(s.value.clone(), dp())),
@@ -386,6 +479,10 @@ fn strip_positions(sexp: &SExp) -> SExp {
         SExp::List(l) => {
             let elems = l.elements.iter().map(strip_positions).collect();
             SExp::List(List::new(elems, dp()))
+        }
+        SExp::Tuple(t) => {
+            let elems = t.elements.iter().map(strip_positions).collect();
+            SExp::Tuple(Tuple::new(elems, dp()))
         }
     }
 }

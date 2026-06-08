@@ -1,0 +1,15 @@
+(defmodule tuple_test
+  (export (make-pair 2) (classify-os 1)))
+
+(defun/typed make-pair
+  :args ((a dynamic) (b dynamic))
+  :returns dynamic
+  :body (tuple a b))
+
+(defun/typed classify-os
+  :args ((os-tuple dynamic))
+  :returns atom
+  :body (case os-tuple
+          (#(unix linux) 'linux)
+          (#(unix darwin) 'macos)
+          (_ 'other)))

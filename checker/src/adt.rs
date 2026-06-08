@@ -455,6 +455,10 @@ fn format_sexp_flat(sexp: &SExp) -> String {
             let inner: Vec<String> = l.elements.iter().map(format_sexp_flat).collect();
             format!("({})", inner.join(" "))
         }
+        SExp::Tuple(t) => {
+            let inner: Vec<String> = t.elements.iter().map(format_sexp_flat).collect();
+            format!("#({})", inner.join(" "))
+        }
     }
 }
 

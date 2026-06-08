@@ -276,8 +276,10 @@ fn main() {
                         had_error = true;
                     }
 
+                    let expanded_body: Vec<sexp::types::SExp> =
+                        tf.body.iter().map(lower::expand_quasiquotes).collect();
                     let body = lower_body_constructions(
-                        &tf.body,
+                        &expanded_body,
                         &env,
                         &ctor_names,
                         otp_version,

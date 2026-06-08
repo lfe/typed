@@ -8,6 +8,7 @@ pub enum SExp {
     Number(Number),
     Nil(Nil),
     List(List),
+    Tuple(Tuple),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -93,6 +94,18 @@ impl List {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Tuple {
+    pub elements: Vec<SExp>,
+    pub pos: Position,
+}
+
+impl Tuple {
+    pub fn new(elements: Vec<SExp>, pos: Position) -> Self {
+        Self { elements, pos }
+    }
+}
+
 pub trait HasPosition {
     fn position(&self) -> Position;
 }
@@ -106,6 +119,7 @@ impl HasPosition for SExp {
             SExp::Number(n) => n.pos,
             SExp::Nil(n) => n.pos,
             SExp::List(l) => l.pos,
+            SExp::Tuple(t) => t.pos,
         }
     }
 }

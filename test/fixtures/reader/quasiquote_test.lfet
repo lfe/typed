@@ -1,0 +1,12 @@
+(defmodule quasiquote_test
+  (export (make-tagged 1) (splice-test 1)))
+
+(defun/typed make-tagged
+  :args ((x dynamic))
+  :returns dynamic
+  :body `(tagged ,x done))
+
+(defun/typed splice-test
+  :args ((xs dynamic))
+  :returns dynamic
+  :body `(start ,@xs end))

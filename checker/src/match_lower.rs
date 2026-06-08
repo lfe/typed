@@ -105,6 +105,10 @@ fn strip_pos(sexp: &SExp) -> SExp {
             let elems = l.elements.iter().map(strip_pos).collect();
             SExp::List(List::new(elems, dp()))
         }
+        SExp::Tuple(t) => {
+            let elems = t.elements.iter().map(strip_pos).collect();
+            SExp::Tuple(Tuple::new(elems, dp()))
+        }
     }
 }
 

@@ -182,6 +182,7 @@ pub fn synth_expr(
                 _ => Type::Dynamic,
             }
         }
+        SExp::Tuple(_) => Type::Dynamic,
     };
 
     (ty, errors)
