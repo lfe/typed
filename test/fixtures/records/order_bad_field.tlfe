@@ -1,0 +1,13 @@
+(defmodule order_bad_field
+  (export (get-bogus 1)
+          (validate-order 2) (decode-order 1)))
+
+(defrecord/typed order
+  (id integer)
+  (status atom)
+  (total integer))
+
+(defun/typed get-bogus
+  :args ((o order))
+  :returns integer
+  :body (order-bogus o))

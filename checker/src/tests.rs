@@ -1545,3 +1545,87 @@ fn r6_record_in_registry() {
         _ => panic!("expected registry list"),
     }
 }
+
+#[test]
+fn r7_make_order_synthesizes_record_type() {
+    let input = "(defrecord/typed order (id integer) (status atom) (total integer))";
+    let form = Parser::parse_str(input).unwrap();
+    let adt = adt::extract_defrecord(&form).unwrap();
+    let mut tenv = TypeEnv::new();
+    tenv.register(adt);
+
+    let mut env = crate::typecheck::BodyEnv::new();
+    // Register make-order sig as main.rs now does
+    env.register_fun(
+        "make-order",
+        crate::typecheck::FunSig {
+            args: vec![
+                ("id".to_string(), crate::typecheck::Type::Integer),
+                ("status".to_string(), crate::typecheck::Type::Atom),
+                ("total".to_string(), crate::typecheck::Type::Integer),
+            ],
+            returns: crate::typecheck::Type::Adt("order".to_string()),
+        },
+    );
+
+    let call_input = "(make-order 1 'pending 2)";
+    let call_form = Parser::parse_str(call_input).unwrap();
+    let (ty, errs) = crate::typecheck::synth_expr(&call_form, &env, &tenv, "test.lfe");
+    assert!(errs.is_empty());
+    assert_eq!(ty, crate::typecheck::Type::Adt("order".to_string()));
+}
+
+#[test]
+fn r7_make_order_static_rejects_wrong_field_type() {
+    let input = "(defrecord/typed order (id integer) (status atom) (total integer))";
+    let form = Parser::parse_str(input).unwrap();
+    let adt = adt::extract_defrecord(&form).unwrap();
+    let mut tenv = TypeEnv::new();
+    tenv.register(adt);
+
+    let mut env = crate::typecheck::BodyEnv::new();
+    env.register_fun(
+        "make-order",
+        crate::typecheck::FunSig {
+            args: vec![
+                ("id".to_string(), crate::typecheck::Type::Integer),
+                ("status".to_string(), crate::typecheck::Type::Atom),
+                ("total".to_string(), crate::typecheck::Type::Integer),
+            ],
+            returns: crate::typecheck::Type::Adt("order".to_string()),
+        },
+    );
+
+    let call_input = r#"(make-order "not-an-int" 'pending 1000)"#;
+    let call_form = Parser::parse_str(call_input).unwrap();
+    let (ty, errs) = crate::typecheck::synth_expr(&call_form, &env, &tenv, "test.lfe");
+    assert_eq!(ty, crate::typecheck::Type::Adt("order".to_string()));
+    assert_eq!(errs.len(), 1);
+    let msg = format!("{}", errs[0]);
+    assert_eq!(
+        msg,
+        "test.lfe:1:13: argument `id` expected type `integer`, got `string`"
+    );
+}
+
+#[test]
+fn r7_unknown_field_accessor_diagnostic() {
+    let input = "(defrecord/typed order (id integer) (status atom) (total integer))";
+    let form = Parser::parse_str(input).unwrap();
+    let adt = adt::extract_defrecord(&form).unwrap();
+    let mut tenv = TypeEnv::new();
+    tenv.register(adt);
+
+    let env = crate::typecheck::BodyEnv::new();
+
+    let call_input = "(order-bogus o)";
+    let call_form = Parser::parse_str(call_input).unwrap();
+    let (ty, errs) = crate::typecheck::synth_expr(&call_form, &env, &tenv, "test.lfe");
+    assert_eq!(ty, crate::typecheck::Type::Dynamic);
+    assert_eq!(errs.len(), 1);
+    let msg = format!("{}", errs[0]);
+    assert_eq!(
+        msg,
+        "test.lfe:1:1: unknown field `bogus` on record `order`; available fields: id, status, total"
+    );
+}

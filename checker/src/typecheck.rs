@@ -219,6 +219,20 @@ fn synth_call(
         ret
     } else if let Some((_rec_name, field_type)) = type_env.lookup_record_accessor(func_name) {
         parse_type(field_type)
+    } else if let Some((rec_name, bad_field, available)) =
+        type_env.check_unknown_record_field(func_name)
+    {
+        errors.push(CheckError::Diagnostic {
+            file: file.to_string(),
+            pos: l.pos,
+            message: format!(
+                "unknown field `{}` on record `{}`; available fields: {}",
+                bad_field,
+                rec_name,
+                available.join(", ")
+            ),
+        });
+        Type::Dynamic
     } else {
         Type::Dynamic
     }

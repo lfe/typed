@@ -120,6 +120,49 @@ fn main() {
         }
     }
 
+    // Register generated record-function signatures for static checking
+    for adt_def in env.all_types() {
+        if adt_def.constructors.len() == 1 && adt_def.constructors[0].name == adt_def.name {
+            let rec_type = typecheck::Type::Adt(adt_def.name.clone());
+            let ctor = &adt_def.constructors[0];
+
+            // make-<rec>: args = field types, returns = record type
+            let make_sig = typecheck::FunSig {
+                args: ctor
+                    .fields
+                    .iter()
+                    .map(|f| (f.name.clone(), typecheck::parse_type(&f.type_expr)))
+                    .collect(),
+                returns: rec_type.clone(),
+            };
+            all_fun_sigs.push((format!("make-{}", adt_def.name), make_sig));
+
+            // <rec>-<field>: arg = record type, returns = field type
+            for field in &ctor.fields {
+                let acc_sig = typecheck::FunSig {
+                    args: vec![("rec".to_string(), rec_type.clone())],
+                    returns: typecheck::parse_type(&field.type_expr),
+                };
+                all_fun_sigs.push((format!("{}-{}", adt_def.name, field.name), acc_sig));
+            }
+
+            // set-<rec>-<field>: args = (record, field-type), returns = record type
+            for field in &ctor.fields {
+                let set_sig = typecheck::FunSig {
+                    args: vec![
+                        ("rec".to_string(), rec_type.clone()),
+                        (
+                            "new-val".to_string(),
+                            typecheck::parse_type(&field.type_expr),
+                        ),
+                    ],
+                    returns: rec_type.clone(),
+                };
+                all_fun_sigs.push((format!("set-{}-{}", adt_def.name, field.name), set_sig));
+            }
+        }
+    }
+
     for form in &pending_forms {
         if is_defun_typed(form) {
             match typed_surface::extract_typed_fun(form) {

@@ -40,6 +40,8 @@
    (r6_registry_attr 1)
    ;; R-7: Diagnostics
    (r7_make_arity_mismatch 1)
+   (r7_static_bad_field_type 1)
+   (r7_static_unknown_field 1)
    ;; R-8: Dogfood end-to-end
    (r8_dogfood_construct_access_update 1)))
 
@@ -53,6 +55,8 @@
     r5_typed_fun_over_record
     r6_registry_attr
     r7_make_arity_mismatch
+    r7_static_bad_field_type
+    r7_static_unknown_field
     r8_dogfood_construct_access_update))
 
 (defun suite () `(#(timetrap #(seconds 60))))
@@ -218,6 +222,30 @@
       (`#(error #(undef ,_) ,_) 'ok)
       (`#(error undef ,_) 'ok))))
 
+(defun r7_static_bad_field_type (config)
+  (let* ((checker-bin (proplists:get_value 'checker_bin config))
+         (fixture-dir (proplists:get_value 'fixture_dir config))
+         (fixture (filename:join (list fixture-dir "records" "order_bad_make.tlfe")))
+         (`#(,exit-code ,output) (run-checker-raw checker-bin fixture)))
+    (case exit-code
+      (0 (ct:fail '#(expected_nonzero_exit)))
+      (_
+       (case (string:find output "argument `id` expected type `integer`, got `string`")
+         ('nomatch (ct:fail `#(wrong_diagnostic ,output)))
+         (_ 'ok))))))
+
+(defun r7_static_unknown_field (config)
+  (let* ((checker-bin (proplists:get_value 'checker_bin config))
+         (fixture-dir (proplists:get_value 'fixture_dir config))
+         (fixture (filename:join (list fixture-dir "records" "order_bad_field.tlfe")))
+         (`#(,exit-code ,output) (run-checker-raw checker-bin fixture)))
+    (case exit-code
+      (0 (ct:fail '#(expected_nonzero_exit)))
+      (_
+       (case (string:find output "unknown field `bogus` on record `order`")
+         ('nomatch (ct:fail `#(wrong_diagnostic ,output)))
+         (_ 'ok))))))
+
 ;;; ============================================================
 ;;; R-8: Dogfood end-to-end
 ;;; ============================================================
@@ -256,6 +284,20 @@
   (let* ((cmd (lists:flatten
                (io_lib:format "\"~s\" \"~s\" --output \"~s\" 2>&1; echo \"EXIT:$?\""
                               (list checker-bin input-file output-file))))
+         (raw-output (os:cmd cmd))
+         (lines (string:split (string:trim raw-output) "\n" 'all))
+         (last-line (lists:last lines)))
+    (case (string:prefix last-line "EXIT:")
+      ('nomatch (tuple 1 raw-output))
+      (exit-str
+       (let ((code (list_to_integer (string:trim exit-str)))
+             (diag-lines (lists:droplast lines)))
+         (tuple code (lists:join "\n" diag-lines)))))))
+
+(defun run-checker-raw (checker-bin input-file)
+  (let* ((cmd (lists:flatten
+               (io_lib:format "\"~s\" \"~s\" 2>&1; echo \"EXIT:$?\""
+                              (list checker-bin input-file))))
          (raw-output (os:cmd cmd))
          (lines (string:split (string:trim raw-output) "\n" 'all))
          (last-line (lists:last lines)))

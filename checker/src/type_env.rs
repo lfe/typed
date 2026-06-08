@@ -57,4 +57,31 @@ impl TypeEnv {
         }
         None
     }
+
+    pub fn check_unknown_record_field(
+        &self,
+        func_name: &str,
+    ) -> Option<(String, String, Vec<String>)> {
+        for adt in self.types.values() {
+            if adt.constructors.len() == 1 && adt.constructors[0].name == adt.name {
+                let rec_name = &adt.name;
+                let prefix = format!("{}-", rec_name);
+                if let Some(field_name) = func_name.strip_prefix(&prefix) {
+                    let known = adt.constructors[0]
+                        .fields
+                        .iter()
+                        .any(|f| f.name == field_name);
+                    if !known {
+                        let available: Vec<String> = adt.constructors[0]
+                            .fields
+                            .iter()
+                            .map(|f| f.name.clone())
+                            .collect();
+                        return Some((rec_name.clone(), field_name.to_string(), available));
+                    }
+                }
+            }
+        }
+        None
+    }
 }

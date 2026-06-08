@@ -1,0 +1,13 @@
+(defmodule order_bad_make
+  (export (bad-order 0)
+          (validate-order 2) (decode-order 1)))
+
+(defrecord/typed order
+  (id integer)
+  (status atom)
+  (total integer))
+
+(defun/typed bad-order
+  :args ()
+  :returns order
+  :body (make-order "not-an-int" 'pending 1000))

@@ -192,7 +192,7 @@ always-on runtime guards with structured type-errors, deep validators/decode for
 the typed/untyped boundary, and typed records (`defrecord/typed`) with generated
 constructors, accessors, and functional updaters — all type-aware. The diagnostic
 engine renders Gleam-grade errors with span+caret in both human and JSON formats.
-71 Rust tests, 63 LFE CT tests, `make check` clean.
+74 Rust tests, 65 LFE CT tests, `make check` clean.
 
 If the ideas here interest you, the design docs are the best place to start, and
 feedback (especially on syntax) is enormously welcome.
