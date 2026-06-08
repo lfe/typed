@@ -107,4 +107,23 @@ type-error while `'pending'` passes.
 Done: 9 (M4-1,2,3,4,9,10,11,12,13). Done with caveat: 1 (M4-4, render helper → M4.5).
 Deferred to M4.5: 4 (M4-5,6,7,8).
 Test summary: 63/63 Rust, 31/31 CT (0 skipped), `make check` clean.
-Awaiting CDC re-verification against `ae27641`.
+
+## CDC Re-Verification (Iteration 2)
+
+**Verifier:** Claude (CDC), 2026-06-07, against `ae27641`. **M4-2 confirmed fixed by reading
+the source:** `guard_for_tagged_tuple_adt` emits a per-constructor `orelse` — nullary →
+`X =:= 'tag'`; with-fields → `(andalso (is_tuple X) (=:= (element 1 X) 'tag) (=:= (tuple_size
+X) N))` — exactly the tag+arity check the criterion specified. `m4_2_wrong_tag_rejected`
+proves `{bogus,1}` raises the structured `type_error` (expected=order-status) and **fails on
+function_clause**, while `'pending'` passes. The `ae27641` diff touches only `guards.rs` +
+tests + docs (no collateral). The shape-only gap is closed.
+
+## Closure
+
+**M4 CLOSED (CDC-accepted).** Closed at commit `ae27641` on 2026-06-07. CDC: Claude (CDC),
+static re-inspection. Total rows: 13. **Done: 9. Deferred-to-M4.5: 4** (M4-5/6/7/8 — deep
+validators, `decode`, web-demo, duality — all landed in M4.5, now closed); the M4-4 render
+helper deferred to M4.6. The always-on guards core is delivered: every typed function head
+enforces base + ADT (tag+arity) types at runtime, raising a structured `type_error` on
+violation (let-it-crash), with full M0–M3.5 regression green WITH guards on. Native-record
+runtime guards remain deferred (OTP 29+). **M0–M4 + M4.5 all CLOSED.**
