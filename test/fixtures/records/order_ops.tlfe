@@ -1,0 +1,13 @@
+(defmodule order_ops
+  (export (make-order 3) (get-total 1)
+          (validate-order 2) (decode-order 1)))
+
+(defrecord/typed order
+  (id integer)
+  (status atom)
+  (total integer))
+
+(defun/typed get-total
+  :args ((o order))
+  :returns integer
+  :body (order-total o))

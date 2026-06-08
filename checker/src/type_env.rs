@@ -38,4 +38,23 @@ impl TypeEnv {
     pub fn all_types(&self) -> impl Iterator<Item = &AdtDef> {
         self.types.values()
     }
+
+    pub fn lookup_record_accessor(&self, func_name: &str) -> Option<(&str, &str)> {
+        for adt in self.types.values() {
+            if adt.constructors.len() == 1 && adt.constructors[0].name == adt.name {
+                let rec_name = &adt.name;
+                let prefix = format!("{}-", rec_name);
+                if let Some(field_name) = func_name.strip_prefix(&prefix) {
+                    if let Some(field) = adt.constructors[0]
+                        .fields
+                        .iter()
+                        .find(|f| f.name == field_name)
+                    {
+                        return Some((rec_name, &field.type_expr));
+                    }
+                }
+            }
+        }
+        None
+    }
 }

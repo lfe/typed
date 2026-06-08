@@ -81,6 +81,45 @@ For each `deftype`, the checker generates:
 
 **You must manually export these** in your module's `(export ...)`.
 
+## Typed Records (`defrecord/typed`)
+
+Records are single-constructor ADTs with named fields and generated accessors:
+
+```lisp
+(defmodule inventory
+  (export (make-item 3) (item-name 1) (item-qty 1) (item-price 1)
+          (set-item-qty 2)
+          (validate-item 2) (decode-item 1)))
+
+(defrecord/typed item
+  (name string)
+  (qty integer)
+  (price integer))
+
+(defun/typed restock
+  :args ((it item) (n integer))
+  :returns item
+  :body (set-item-qty it (+ (item-qty it) n)))
+```
+
+### Generated functions
+
+For each `defrecord/typed`:
+- `make-<rec>/N` — constructor (one arg per field, in declared order); each arg
+  guarded by its field type
+- `<rec>-<field>/1` — accessor for each field
+- `set-<rec>-<field>/2` — functional updater (returns a **new** record); the new
+  value is guarded by the field type
+
+All field-type guards use the M4 always-on posture: wrong type raises
+`{type_error, #{expected => T, got => V, ...}}`.
+
+### Type-aware accessors
+
+The checker synthesizes accessor return types from the record definition:
+`(item-qty it)` is known to return `integer`, not `dynamic`. This enables
+full type checking of functions that use record accessors.
+
 ## Running the Checker
 
 ```sh

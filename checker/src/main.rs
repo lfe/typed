@@ -6,6 +6,7 @@ mod guards;
 mod lower;
 mod match_lower;
 mod matching;
+mod records;
 mod sexp;
 mod type_env;
 mod typecheck;
@@ -70,6 +71,20 @@ fn main() {
 
         if is_deftype(form) {
             match adt::extract_deftype(form) {
+                Ok(adt_def) => {
+                    env.register(adt_def);
+                }
+                Err(e) => {
+                    let e = stamp_file(e, source_name);
+                    eprintln!("{}", e);
+                    had_error = true;
+                }
+            }
+            continue;
+        }
+
+        if is_defrecord_typed(form) {
+            match adt::extract_defrecord(form) {
                 Ok(adt_def) => {
                     env.register(adt_def);
                 }
@@ -207,9 +222,28 @@ fn main() {
     for adt_def in &all_adts {
         let validate_name = format!("validate-{}", adt_def.name);
         let decode_name = format!("decode-{}", adt_def.name);
-        module_exports.push((validate_name, 2)); // validate takes term + path
-        module_exports.push((decode_name, 1)); // decode takes term
+        module_exports.push((validate_name, 2));
+        module_exports.push((decode_name, 1));
     }
+
+    // Add record function exports (make-, accessors, set-) for record-style ADTs
+    let mut record_forms: Vec<(sexp::types::SExp, usize)> = Vec::new();
+    for adt_def in &all_adts {
+        if adt_def.constructors.len() == 1 && adt_def.constructors[0].name == adt_def.name {
+            let rec_exports = records::record_exports(adt_def);
+            for (name, arity) in rec_exports {
+                module_exports.push((name, arity));
+            }
+            let rec_fns = records::generate_record_functions(adt_def, &env);
+            for (form, line) in rec_fns {
+                record_forms.push((form, line));
+            }
+        }
+    }
+
+    // Deduplicate exports
+    let mut seen = std::collections::HashSet::new();
+    module_exports.retain(|(name, arity)| seen.insert((name.clone(), *arity)));
 
     let module_form =
         lower::lower_module_def_with_attrs(&module_name, &module_exports, &extra_attrs);
@@ -228,6 +262,9 @@ fn main() {
         let decode = validators::generate_decode(adt_def, otp_version);
         form_line_pairs.push((decode, 1));
     }
+
+    // Emit record functions
+    form_line_pairs.extend(record_forms);
 
     // render-type-error helper deferred: generating module-qualified calls
     // (maps:get, io_lib:format) requires (call 'mod 'fun ...) internal form
@@ -447,6 +484,12 @@ fn is_case_typed(form: &sexp::types::SExp) -> bool {
     matches!(form, sexp::types::SExp::List(l)
         if !l.elements.is_empty()
             && matches!(&l.elements[0], sexp::types::SExp::Symbol(s) if s.value == "case/typed"))
+}
+
+fn is_defrecord_typed(form: &sexp::types::SExp) -> bool {
+    matches!(form, sexp::types::SExp::List(l)
+        if !l.elements.is_empty()
+            && matches!(&l.elements[0], sexp::types::SExp::Symbol(s) if s.value == "defrecord/typed"))
 }
 
 fn is_deftype(form: &sexp::types::SExp) -> bool {

@@ -217,6 +217,8 @@ fn synth_call(
         sig.returns.clone()
     } else if let Some(ret) = builtin_return_type(func_name, arg_count) {
         ret
+    } else if let Some((_rec_name, field_type)) = type_env.lookup_record_accessor(func_name) {
+        parse_type(field_type)
     } else {
         Type::Dynamic
     }

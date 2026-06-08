@@ -1374,3 +1374,174 @@ fn c4_string_still_compatible_with_list() {
         &crate::typecheck::Type::String,
     ));
 }
+
+// ============================================================
+// M6 tests — Typed Records (defrecord/typed)
+// ============================================================
+
+#[test]
+fn r1_defrecord_parses_to_one_ctor_adt() {
+    let input = r#"(defrecord/typed order
+  (id integer)
+  (status atom)
+  (total integer))"#;
+    let form = Parser::parse_str(input).unwrap();
+    let adt = adt::extract_defrecord(&form).unwrap();
+
+    assert_eq!(adt.name, "order");
+    assert!(adt.type_params.is_empty());
+    assert_eq!(adt.repr, adt::ReprKind::TaggedTuple);
+    assert_eq!(adt.constructors.len(), 1);
+
+    let ctor = &adt.constructors[0];
+    assert_eq!(ctor.name, "order");
+    assert_eq!(ctor.fields.len(), 3);
+
+    assert_eq!(ctor.fields[0].name, "id");
+    assert_eq!(ctor.fields[0].type_expr, "integer");
+    assert_eq!(ctor.fields[1].name, "status");
+    assert_eq!(ctor.fields[1].type_expr, "atom");
+    assert_eq!(ctor.fields[2].name, "total");
+    assert_eq!(ctor.fields[2].type_expr, "integer");
+}
+
+#[test]
+fn r1_defrecord_ctor_name_equals_type_name() {
+    let input = "(defrecord/typed point (x integer) (y integer))";
+    let form = Parser::parse_str(input).unwrap();
+    let adt = adt::extract_defrecord(&form).unwrap();
+
+    assert_eq!(adt.name, adt.constructors[0].name);
+}
+
+#[test]
+fn r1_defrecord_too_few_elements() {
+    let input = "(defrecord/typed order)";
+    let form = Parser::parse_str(input).unwrap();
+    let err = adt::extract_defrecord(&form).unwrap_err();
+    match err {
+        crate::error::CheckError::Diagnostic { message, .. } => {
+            assert!(
+                message.contains("requires a name and at least one field"),
+                "msg: {message}"
+            );
+        }
+        other => panic!("unexpected error: {:?}", other),
+    }
+}
+
+#[test]
+fn r1_defrecord_bad_field_shape() {
+    let input = "(defrecord/typed order (id integer) bad-field)";
+    let form = Parser::parse_str(input).unwrap();
+    let err = adt::extract_defrecord(&form).unwrap_err();
+    match err {
+        crate::error::CheckError::Diagnostic { message, .. } => {
+            assert!(
+                message.contains("expected field definition"),
+                "msg: {message}"
+            );
+        }
+        other => panic!("unexpected error: {:?}", other),
+    }
+}
+
+#[test]
+fn r2_record_exports_correct() {
+    let input = "(defrecord/typed order (id integer) (status atom) (total integer))";
+    let form = Parser::parse_str(input).unwrap();
+    let adt = adt::extract_defrecord(&form).unwrap();
+
+    let exports = crate::records::record_exports(&adt);
+    assert_eq!(
+        exports,
+        vec![
+            ("make-order".to_string(), 3),
+            ("order-id".to_string(), 1),
+            ("set-order-id".to_string(), 2),
+            ("order-status".to_string(), 1),
+            ("set-order-status".to_string(), 2),
+            ("order-total".to_string(), 1),
+            ("set-order-total".to_string(), 2),
+        ]
+    );
+}
+
+#[test]
+fn r2_r3_r4_record_functions_generated() {
+    let input = "(defrecord/typed point (x integer) (y integer))";
+    let form = Parser::parse_str(input).unwrap();
+    let adt = adt::extract_defrecord(&form).unwrap();
+    let env = TypeEnv::new();
+
+    let forms = crate::records::generate_record_functions(&adt, &env);
+    assert_eq!(forms.len(), 5);
+
+    let fn_names: Vec<String> = forms
+        .iter()
+        .filter_map(|(sexp, _)| match sexp {
+            SExp::List(l) if l.elements.len() >= 2 => match &l.elements[1] {
+                SExp::Symbol(s) => Some(s.value.clone()),
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        fn_names,
+        vec![
+            "make-point",
+            "point-x",
+            "point-y",
+            "set-point-x",
+            "set-point-y"
+        ]
+    );
+}
+
+#[test]
+fn r3_accessor_synthesizes_field_type() {
+    let input = "(defrecord/typed order (id integer) (status atom) (total integer))";
+    let form = Parser::parse_str(input).unwrap();
+    let adt = adt::extract_defrecord(&form).unwrap();
+    let mut tenv = TypeEnv::new();
+    tenv.register(adt);
+
+    let env = crate::typecheck::BodyEnv::new();
+
+    let call_input = "(order-id o)";
+    let call_form = Parser::parse_str(call_input).unwrap();
+    let (ty, errs) = crate::typecheck::synth_expr(&call_form, &env, &tenv, "test.lfe");
+    assert!(errs.is_empty());
+    assert_eq!(ty, crate::typecheck::Type::Integer);
+
+    let call_input2 = "(order-status o)";
+    let call_form2 = Parser::parse_str(call_input2).unwrap();
+    let (ty2, errs2) = crate::typecheck::synth_expr(&call_form2, &env, &tenv, "test.lfe");
+    assert!(errs2.is_empty());
+    assert_eq!(ty2, crate::typecheck::Type::Atom);
+}
+
+#[test]
+fn r6_record_in_registry() {
+    let input = "(defrecord/typed order (id integer) (status atom) (total integer))";
+    let form = Parser::parse_str(input).unwrap();
+    let adt = adt::extract_defrecord(&form).unwrap();
+
+    let registry = lower::lower_registry_attr(&[adt.clone()]);
+    match &registry {
+        SExp::List(l) => {
+            assert_eq!(l.elements.len(), 1);
+            match &l.elements[0] {
+                SExp::List(entry) => {
+                    assert!(matches!(&entry.elements[0], SExp::Symbol(s) if s.value == "order"));
+                    assert!(
+                        matches!(&entry.elements[2], SExp::Symbol(s) if s.value == "tagged-tuple")
+                    );
+                }
+                _ => panic!("expected registry entry list"),
+            }
+        }
+        _ => panic!("expected registry list"),
+    }
+}

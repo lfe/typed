@@ -1,0 +1,9 @@
+(defmodule order
+  (export (make-order 3) (order-id 1) (order-status 1) (order-total 1)
+          (set-order-id 2) (set-order-status 2) (set-order-total 2)
+          (validate-order 2) (decode-order 1)))
+
+(defrecord/typed order
+  (id integer)
+  (status atom)
+  (total integer))

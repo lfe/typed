@@ -240,6 +240,76 @@ fn parse_constructor(form: &SExp) -> Result<CtorDef, CheckError> {
     })
 }
 
+pub fn extract_defrecord(form: &SExp) -> Result<AdtDef, CheckError> {
+    let list = match form {
+        SExp::List(l) => l,
+        _ => {
+            return Err(diagnostic(
+                form.position(),
+                "expected a list form for defrecord/typed",
+            ))
+        }
+    };
+
+    let elems = &list.elements;
+    if elems.len() < 3 {
+        return Err(diagnostic(
+            list.pos,
+            "defrecord/typed requires a name and at least one field",
+        ));
+    }
+
+    match &elems[0] {
+        SExp::Symbol(s) if s.value == "defrecord/typed" => {}
+        _ => return Err(diagnostic(elems[0].position(), "expected defrecord/typed")),
+    }
+
+    let name = match &elems[1] {
+        SExp::Symbol(s) => s.value.clone(),
+        other => return Err(diagnostic(other.position(), "expected record name")),
+    };
+
+    let mut fields = Vec::new();
+    for elem in &elems[2..] {
+        match elem {
+            SExp::List(field_list) if field_list.elements.len() == 2 => {
+                let field_name = match &field_list.elements[0] {
+                    SExp::Symbol(s) => s.value.clone(),
+                    other => return Err(diagnostic(other.position(), "expected field name")),
+                };
+                let field_type = match &field_list.elements[1] {
+                    SExp::Symbol(s) => s.value.clone(),
+                    SExp::List(l) => format_sexp_flat(&SExp::List(l.clone())),
+                    other => return Err(diagnostic(other.position(), "expected field type")),
+                };
+                fields.push(FieldDef {
+                    name: field_name,
+                    type_expr: field_type,
+                    pos: field_list.pos,
+                });
+            }
+            other => {
+                return Err(diagnostic(
+                    other.position(),
+                    "expected field definition (name type)",
+                ))
+            }
+        }
+    }
+
+    Ok(AdtDef {
+        name: name.clone(),
+        type_params: Vec::new(),
+        constructors: vec![CtorDef {
+            name,
+            fields,
+            pos: list.pos,
+        }],
+        repr: ReprKind::TaggedTuple,
+        pos: list.pos,
+    })
+}
+
 pub fn extract_construction(
     form: &SExp,
     ctor_names: &[String],

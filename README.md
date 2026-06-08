@@ -172,8 +172,9 @@ This project was planned before it was built. The reasoning is all in the open:
 - **M2 — Pattern matching & exhaustiveness** ✅ *(case/typed, exhaustiveness rejection, the diagnostic engine)*
 - **M3 — Function contracts & bidirectional checking** ✅ *(body-vs-:returns, call-arg, field-value checking)*
 - **M3.5 — Cleanup** ✅ *(engine routing, branch typing, README demo, string/binary soundness)*
-- **M4 — The typed/untyped interop boundary** 🚧
-- **M5 — Polish & dogfooding on real LFE**
+- **M4 — The typed/untyped interop boundary** ✅ *(always-on guards, structured type-errors, deep validators, decode membrane)*
+- **M5 — Polish & dogfooding on real LFE** ✅ *(dogfood on orders.tlfe, gap inventory, map errors, usage docs)*
+- **M6 — Typed records** ✅ *(defrecord/typed, make-/accessors/set-, type-aware synthesis, registry)*
 
 Further out: per-expression source mapping (an upstream collaboration with LFE
 itself), and a typed-ADT ↔ Rust bridge for [Rustler](https://github.com/rusterlium/rustler)
@@ -186,10 +187,12 @@ NIF boundaries.
 `lfe/typed` is not yet packaged for `rebar3 add`, but the core static type system
 works end-to-end: ADTs with pluggable representation backends, exhaustive pattern
 matching that rejects non-exhaustive matches naming every missing constructor,
-bidirectional contract checking (body-vs-`:returns`, call-arg, field-value), and a
-diagnostic engine rendering Gleam-grade errors with span+caret in both human and
-JSON formats. The README `describe` example type-checks (correct version) and is
-rejected (wrong version). 63 Rust tests, 27 LFE CT tests, `make check` clean.
+bidirectional contract checking (body-vs-`:returns`, call-arg, field-value),
+always-on runtime guards with structured type-errors, deep validators/decode for
+the typed/untyped boundary, and typed records (`defrecord/typed`) with generated
+constructors, accessors, and functional updaters — all type-aware. The diagnostic
+engine renders Gleam-grade errors with span+caret in both human and JSON formats.
+71 Rust tests, 63 LFE CT tests, `make check` clean.
 
 If the ideas here interest you, the design docs are the best place to start, and
 feedback (especially on syntax) is enormously welcome.
