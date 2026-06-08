@@ -41,7 +41,11 @@
    (d4_duality 1)
    ;; D-7: enum + transparent validators
    (d7_enum_validator 1)
-   (d7_transparent_validator 1)))
+   (d7_transparent_validator 1)
+   ;; E-3: render helper exact snapshot
+   (e3_render_helper 1)
+   ;; E-4: render works for both faces (crash + return)
+   (e4_render_both_faces 1)))
 
 (defun all ()
   '(m4_1_correct_call_passes
@@ -56,7 +60,9 @@
     d3_web_input_demo
     d4_duality
     d7_enum_validator
-    d7_transparent_validator))
+    d7_transparent_validator
+    e3_render_helper
+    e4_render_both_faces))
 
 (defun suite () `(#(timetrap #(seconds 60))))
 
@@ -373,6 +379,49 @@
                   (other (ct:fail `#(wrong_error_fields ,other))))))
              (`#(error function_clause ,_)
               (ct:fail '#(got_function_clause_not_type_error)))))))
+      (`#(error ,reason)
+       (ct:fail `#(compile_failed ,reason))))))
+
+;;; E-3: render helper — exact snapshot
+
+(defun e3_render_helper (_config)
+  ;; Render a type-error with a path (field-level error)
+  (let* ((te (tuple 'type_error
+               (map 'expected 'string
+                    'got 42
+                    'path '(tracking))))
+         (rendered (typed_rt:render_type_error te)))
+    (case rendered
+      ("type error: expected string at .tracking, got 42" 'ok)
+      (other (ct:fail `#(wrong_render ,other))))))
+
+;;; E-4: render works for BOTH faces (crash + return)
+
+(defun e4_render_both_faces (config)
+  (let* ((forms (check-and-decode config "runtime" "membrane.tlfe"))
+         (priv-dir (proplists:get_value 'priv_dir config)))
+    (case (typed_driver:compile_forms forms "membrane.tlfe" priv-dir)
+      (`#(ok membrane ,beam-bin)
+       (code:purge 'membrane)
+       (let ((`#(module membrane) (code:load_binary 'membrane "membrane.beam" beam-bin)))
+         ;; Face 1: guard CRASH — catch it, render it
+         (let ((crash-render
+                (try (call 'membrane 'describe 42)
+                  (catch
+                    (`#(error #(type_error ,info) ,_)
+                     (typed_rt:render_type_error (tuple 'type_error info)))))))
+           ;; Face 2: validator RETURN — extract error, render it
+           (let ((return-result (call 'membrane 'decode-order-status 42)))
+             (case return-result
+               (`#(error ,te)
+                (let ((return-render (typed_rt:render_type_error te)))
+                  ;; Both should be teaching-grade strings mentioning 'expected' and 'got'
+                  (case (andalso (is_list crash-render)
+                                 (is_list return-render))
+                    ('true 'ok)
+                    ('false (ct:fail `#(renders_not_strings
+                                        ,crash-render ,return-render))))))
+               (other (ct:fail `#(decode_should_error ,other))))))))
       (`#(error ,reason)
        (ct:fail `#(compile_failed ,reason))))))
 
