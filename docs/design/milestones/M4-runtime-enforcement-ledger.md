@@ -12,7 +12,7 @@
 | ID | Criterion | Verify | Significance | Origin | Status | Evidence | Notes |
 |----|-----------|--------|--------------|--------|--------|----------|-------|
 | M4-1 | **Head guards — base types:** every `defun/typed` lowers so each arg gets a native guard (`integer→is_integer`, `float→is_float`, `binary→is_binary`, `atom→is_atom`, `boolean`, `string`/`list→is_list`, `map→is_map`). | Rust: lowered form has the guards; CT: correct call works | serious | runtime-enforcement | done | SHA `e849bd0`. `guards.rs:guard_for_type` maps all base types. `lower_typed_fun` emits `match-lambda` with `(when ...)` guards. CT `m4_1_correct_call_passes` — `guarded:double(21) = 42`. | |
-| M4-2 | **Head guards — ADT carriers:** tagged-tuple → `is_tuple` + tag (+arity); enum → `is_atom` + membership; transparent → underlying-type guard; native-record → `is_record` (29+, runtime deferred). | Rust + CT per backend | serious | runtime-enforcement | **open** (CDC: no tag check) | SHA `e849bd0`. `guard_for_adt`: tagged-tuple → `is_tuple` (or `is_tuple\|is_atom` for mixed nullary+non-nullary); enum → `orelse` membership; transparent → underlying type guard. CT: describe demo passes with mixed ADT guard. native-record runtime `deferred` (29+). | |
+| M4-2 | **Head guards — ADT carriers:** tagged-tuple → `is_tuple` + tag (+arity); enum → `is_atom` + membership; transparent → underlying-type guard; native-record → `is_record` (29+, runtime deferred). | Rust + CT per backend | serious | runtime-enforcement | done | SHA `ae27641`. `guard_for_tagged_tuple_adt` generates per-constructor guard: nullary → `X =:= 'tag'`; with fields → `(andalso (is_tuple X) (=:= (element 1 X) 'tag) (=:= (tuple_size X) N))`. CT `m4_2_wrong_tag_rejected` — `{bogus,1}` raises `{type_error, [{expected,'order-status'}, ...]}` while `'pending'` passes. Enum membership unchanged. native-record deferred (29+). | Tag+arity fixed in iteration 2 |
 | M4-3 | **HEADLINE — wrong arg crashes with a structured error:** calling a typed fn with a wrong-typed arg RAISES a structured type-error (let-it-crash), not a silent pass or a bare `function_clause`. | CT: wrong-typed call raises the structured term; exact assertion | serious | runtime-enforcement | done | SHA `c0053cc`. Run-verified: CT `m4_3_wrong_arg_crashes` — `guarded:double("not-an-integer")` raises `{type_error, [{expected,integer}, {function,double}, ...]}`, NOT `function_clause`. The guard fallback clause raises the structured error. | |
 | M4-4 | **Structured type-error term + render:** `#(type_error #{expected, got, function, arg, path})` (or agreed shape); a human-render helper prints it Gleam-style. | Rust/CT: exact snapshot of the term + the rendered string | serious | design §8, runtime-enforcement | done (caveat) | SHA `c0053cc`. Run-verified: CT `m4_4_structured_error_fields` — error term carries `expected=integer`, `got="oops"`, `function=double`, `arg=1`. All fields present. **Caveat:** human-render helper not yet implemented (the term itself is teaching-grade; render helper deferred to M4.5). | Teaching-grade term; render helper → M4.5 |
 | M4-5 | **Deep validators:** `(validate <type> term) -> #(ok term) | #(error type_error)`, generated per type, **recursive** over ADT fields/nested types. | Rust + CT: nested ADT validated; bad field → `#(error …)` exact | serious | runtime-enforcement | **deferred** | Deferred to M4.5. Guards (the non-negotiable core) are done; validators are a separate sub-system. | Splittable → M4.5 |
@@ -97,10 +97,14 @@ close-out: add tag(+arity) checks for tagged-tuple-with-fields + a wrong-tag rej
 
 ## Closure
 
-**Not yet closed (CDC).** Iteration 1 (`c0053cc`) landed always-on base guards, the
-structured-type-error headline (M4-3), and full M0–M3.5 regression with guards on — and
-the M4/M4.5 split is the pre-authorized boundary. **Blocking clean close:** M4-2 — the
-tagged-tuple head guard must check the **tag (+arity)**, not just `is_tuple` (with a
-wrong-tag rejection test). Then M4 (the guards core) closes; M4.5 carries deep validators,
-`decode`, the web-input demo, the guards-vs-validators duality, and the render helper.
-Tally: Done 7 · Open 1 (M4-2) · Deferred-to-M4.5 5 (M4-5,6,7,8 + M4-4 render helper).
+**CC close-out (iteration 2), SHA `ae27641`:**
+M4-2 fixed: tagged-tuple head guards now check tag+arity per constructor, not just
+`is_tuple`. `guard_for_tagged_tuple_adt` generates per-constructor `orelse` of
+`(andalso is_tuple element(1)=tag tuple_size=N)` for ctors with fields + `X =:= 'tag'`
+for nullary ctors. CT `m4_2_wrong_tag_rejected` proves `{bogus,1}` raises structured
+type-error while `'pending'` passes.
+
+Done: 9 (M4-1,2,3,4,9,10,11,12,13). Done with caveat: 1 (M4-4, render helper → M4.5).
+Deferred to M4.5: 4 (M4-5,6,7,8).
+Test summary: 63/63 Rust, 31/31 CT (0 skipped), `make check` clean.
+Awaiting CDC re-verification against `ae27641`.
