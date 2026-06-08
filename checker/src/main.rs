@@ -203,6 +203,14 @@ fn main() {
         extra_attrs.push(("typed-registry".to_string(), registry));
     }
 
+    // Add validator + decode exports for each ADT
+    for adt_def in &all_adts {
+        let validate_name = format!("validate-{}", adt_def.name);
+        let decode_name = format!("decode-{}", adt_def.name);
+        module_exports.push((validate_name, 2)); // validate takes term + path
+        module_exports.push((decode_name, 1)); // decode takes term
+    }
+
     let module_form =
         lower::lower_module_def_with_attrs(&module_name, &module_exports, &extra_attrs);
     let mut form_line_pairs: Vec<(sexp::types::SExp, usize)> = Vec::new();

@@ -30,8 +30,18 @@
    ;; D-3: decode valid + invalid
    (d3_decode_valid 1)
    (d3_decode_invalid 1)
+   ;; D-1: with-fields validation
+   (d1_with_fields_valid 1)
+   (d1_with_fields_bad_field 1)
+   ;; D-2: path at depth
+   (d2_path_at_depth 1)
+   ;; D-3: structured web-input demo
+   (d3_web_input_demo 1)
    ;; D-4: duality — same bad value crashes via head, returns error via decode
-   (d4_duality 1)))
+   (d4_duality 1)
+   ;; D-7: enum + transparent validators
+   (d7_enum_validator 1)
+   (d7_transparent_validator 1)))
 
 (defun all ()
   '(m4_1_correct_call_passes
@@ -40,7 +50,13 @@
     m4_2_wrong_tag_rejected
     d3_decode_valid
     d3_decode_invalid
-    d4_duality))
+    d1_with_fields_valid
+    d1_with_fields_bad_field
+    d2_path_at_depth
+    d3_web_input_demo
+    d4_duality
+    d7_enum_validator
+    d7_transparent_validator))
 
 (defun suite () `(#(timetrap #(seconds 60))))
 
@@ -125,6 +141,146 @@
                      ("oops" 'ok)
                      (other (ct:fail `#(wrong_got_value ,other)))))
                   (other (ct:fail `#(wrong_fields ,other))))))))))
+      (`#(error ,reason)
+       (ct:fail `#(compile_failed ,reason))))))
+
+;;; D-1: with-fields validation — valid constructor with field
+
+(defun d1_with_fields_valid (config)
+  (let* ((forms (check-and-decode config "runtime" "membrane.tlfe"))
+         (priv-dir (proplists:get_value 'priv_dir config)))
+    (case (typed_driver:compile_forms forms "membrane.tlfe" priv-dir)
+      (`#(ok membrane ,beam-bin)
+       (code:purge 'membrane)
+       (let ((`#(module membrane) (code:load_binary 'membrane "membrane.beam" beam-bin)))
+         (let ((result (call 'membrane 'decode-order-status (tuple 'shipped "TRK123"))))
+           (case result
+             (`#(ok #(shipped "TRK123")) 'ok)
+             (other (ct:fail `#(wrong_with_fields_valid ,other)))))))
+      (`#(error ,reason)
+       (ct:fail `#(compile_failed ,reason))))))
+
+;;; D-1: with-fields validation — bad field type rejected
+
+(defun d1_with_fields_bad_field (config)
+  (let* ((forms (check-and-decode config "runtime" "membrane.tlfe"))
+         (priv-dir (proplists:get_value 'priv_dir config)))
+    (case (typed_driver:compile_forms forms "membrane.tlfe" priv-dir)
+      (`#(ok membrane ,beam-bin)
+       (code:purge 'membrane)
+       (let ((`#(module membrane) (code:load_binary 'membrane "membrane.beam" beam-bin)))
+         ;; tracking should be string, not integer
+         (let ((result (call 'membrane 'decode-order-status (tuple 'shipped 42))))
+           (case result
+             (`#(error #(type_error ,info))
+              (let ((expected (proplists:get_value 'expected info))
+                    (got (proplists:get_value 'got info))
+                    (path (proplists:get_value 'path info)))
+                (case (tuple expected got path)
+                  (#(string 42 (tracking)) 'ok)
+                  (other (ct:fail `#(wrong_bad_field_error ,other))))))
+             (other (ct:fail `#(should_be_error ,other)))))))
+      (`#(error ,reason)
+       (ct:fail `#(compile_failed ,reason))))))
+
+;;; D-2: path at depth — non-empty path to failing field
+
+(defun d2_path_at_depth (config)
+  (let* ((forms (check-and-decode config "runtime" "membrane.tlfe"))
+         (priv-dir (proplists:get_value 'priv_dir config)))
+    (case (typed_driver:compile_forms forms "membrane.tlfe" priv-dir)
+      (`#(ok membrane ,beam-bin)
+       (code:purge 'membrane)
+       (let ((`#(module membrane) (code:load_binary 'membrane "membrane.beam" beam-bin)))
+         ;; Bad field: tracking is 42 (integer), should be string
+         (let ((result (call 'membrane 'decode-order-status (tuple 'shipped 42))))
+           (case result
+             (`#(error #(type_error ,info))
+              (let ((path (proplists:get_value 'path info)))
+                (case path
+                  ('(tracking) 'ok)
+                  (other (ct:fail `#(wrong_path ,other))))))
+             (other (ct:fail `#(should_have_path ,other)))))))
+      (`#(error ,reason)
+       (ct:fail `#(compile_failed ,reason))))))
+
+;;; D-3: structured web-input demo — realistic with-fields input
+
+(defun d3_web_input_demo (config)
+  (let* ((forms (check-and-decode config "runtime" "membrane.tlfe"))
+         (priv-dir (proplists:get_value 'priv_dir config)))
+    (case (typed_driver:compile_forms forms "membrane.tlfe" priv-dir)
+      (`#(ok membrane ,beam-bin)
+       (code:purge 'membrane)
+       (let ((`#(module membrane) (code:load_binary 'membrane "membrane.beam" beam-bin)))
+         ;; Valid structured input
+         (let ((valid (call 'membrane 'decode-order-status
+                       (tuple 'cancelled "customer changed mind"))))
+           (case valid
+             (`#(ok #(cancelled "customer changed mind")) 'ok)
+             (other (ct:fail `#(wrong_valid_demo ,other)))))
+         ;; Invalid structured input — wrong field type
+         (let ((invalid (call 'membrane 'decode-order-status
+                         (tuple 'cancelled 999))))
+           (case invalid
+             (`#(error #(type_error ,info))
+              (let ((expected (proplists:get_value 'expected info)))
+                (case expected
+                  ('string 'ok)
+                  (other (ct:fail `#(wrong_expected_demo ,other))))))
+             (other (ct:fail `#(should_reject_demo ,other)))))))
+      (`#(error ,reason)
+       (ct:fail `#(compile_failed ,reason))))))
+
+;;; D-7: enum validator
+
+(defun d7_enum_validator (config)
+  (let* ((forms (check-and-decode config "adt/enum" "colours.tlfe"))
+         (priv-dir (proplists:get_value 'priv_dir config)))
+    (case (typed_driver:compile_forms forms "colours.tlfe" priv-dir)
+      (`#(ok colours ,beam-bin)
+       (code:purge 'colours)
+       (let ((`#(module colours) (code:load_binary 'colours "colours.beam" beam-bin)))
+         ;; Valid enum member
+         (let ((valid (call 'colours 'decode-colour 'red)))
+           (case valid
+             (#(ok red) 'ok)
+             (other (ct:fail `#(wrong_enum_valid ,other)))))
+         ;; Invalid — not a member
+         (let ((invalid (call 'colours 'decode-colour 'purple)))
+           (case invalid
+             (`#(error #(type_error ,info))
+              (let ((expected (proplists:get_value 'expected info)))
+                (case expected
+                  ('colour 'ok)
+                  (other (ct:fail `#(wrong_enum_expected ,other))))))
+             (other (ct:fail `#(should_reject_enum ,other)))))))
+      (`#(error ,reason)
+       (ct:fail `#(compile_failed ,reason))))))
+
+;;; D-7: transparent validator
+
+(defun d7_transparent_validator (config)
+  (let* ((forms (check-and-decode config "adt/transparent" "ids.tlfe"))
+         (priv-dir (proplists:get_value 'priv_dir config)))
+    (case (typed_driver:compile_forms forms "ids.tlfe" priv-dir)
+      (`#(ok ids ,beam-bin)
+       (code:purge 'ids)
+       (let ((`#(module ids) (code:load_binary 'ids "ids.beam" beam-bin)))
+         ;; Valid underlying type
+         (let ((valid (call 'ids 'decode-customer-id 42)))
+           (case valid
+             (#(ok 42) 'ok)
+             (other (ct:fail `#(wrong_transparent_valid ,other)))))
+         ;; Invalid underlying type
+         (let ((invalid (call 'ids 'decode-customer-id "not-an-int")))
+           (case invalid
+             (`#(error #(type_error ,info))
+              (let ((expected (proplists:get_value 'expected info)))
+                (case expected
+                  ('customer-id 'ok)
+                  (other (ct:fail `#(wrong_transparent_expected ,other))))))
+             (other (ct:fail `#(should_reject_transparent ,other)))))))
       (`#(error ,reason)
        (ct:fail `#(compile_failed ,reason))))))
 
