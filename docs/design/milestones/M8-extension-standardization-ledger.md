@@ -26,6 +26,30 @@
 
 ## CDC Verification
 
+**Verifier:** Claude (CDC), 2026-06-08, against `563cf5c`. **Method:** `git show --stat`
+(rename purity), grep for stale `.tlfe`, inspected provider + scanner globs.
+
+**ACCEPTED — M8 CLOSED.**
+
+- **S-1/S-2 ✅** provider globs `*.lfet` (content filter removed — all `.lfet` typed); scanner
+  `find_lfet_files` globs `*.lfet`; diagnostics say `.lfet`; `grep '.tlfe' src/ checker/src/`
+  is empty.
+- **S-4 ✅** 36 files `git mv`'d, **all 0/0 numstat = pure renames** (verified), no content
+  loss; snapshots/paths updated.
+- **S-3 ⚠️→accepted** the mixed `.lfet`/`.lfe` separation has no *dedicated* assertion — argued
+  from "the suite runs." Accepted because (a) the separation is provably automatic (`*.lfe`
+  glob cannot match `.lfet`), and (b) the test run genuinely compiles `.lfe` CT suites via
+  stock LFE alongside `.lfet` fixtures via typed-check. A dedicated one-test would be marginally
+  stronger; not worth an iteration.
+- **S-5/S-6 ✅** docs updated; 82 Rust / 74 CT / `make check` clean.
+- **Bonus:** the optional recursive scan was folded in (`collect_lfet_recursive`), resolving
+  the M7 X-2 flat-scan limitation. (Minor: no explicit sub-dir-resolution test — note for
+  future, not blocking.)
+
+**Disposition:** M8 CLOSED (CDC-accepted) at `563cf5c`. Typed files are `.lfet`; the codebase
+is consistent; the latent provider/scanner glob bugs are fixed. **M0–M8 complete.**
+
+
 _(Filled in by CDC against the closing SHA.)_
 
 ## Closure

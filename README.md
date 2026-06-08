@@ -177,6 +177,8 @@ This project was planned before it was built. The reasoning is all in the open:
 - **M6 — Typed records** ✅ *(defrecord/typed, make-/accessors/set-, type-aware synthesis, registry)*
 - **M7 — Cross-module type references** ✅ *(qualified mod:type, import-types, project scan, static diagnostics)*
 - **M8 — Extension standardization** ✅ *(.tlfe → .lfet; provider/scanner globs; mixed .lfet/.lfe separation)*
+- **M9 — Reader correctness** *(binary `#"…"` and tuple `#(…)` literals in the sexp reader)*
+- **M10 — Real-world port** *(port an existing module — [lfex/dirs](https://github.com/lfex/dirs) — to typed, reality-grading the design)*
 
 Further out: per-expression source mapping (an upstream collaboration with LFE
 itself), and a typed-ADT ↔ Rust bridge for [Rustler](https://github.com/rusterlium/rustler)
