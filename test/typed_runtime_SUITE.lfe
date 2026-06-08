@@ -416,9 +416,16 @@
                (`#(error ,te)
                 (let ((return-render (typed_rt:render_type_error te)))
                   ;; Both should be teaching-grade strings mentioning 'expected' and 'got'
+                  ;; Both renders should be teaching-grade strings
                   (case (andalso (is_list crash-render)
-                                 (is_list return-render))
-                    ('true 'ok)
+                                 (=/= 'nomatch (string:find crash-render "type error:"))
+                                 (is_list return-render)
+                                 (=/= 'nomatch (string:find return-render "type error:")))
+                    ('true
+                     ;; Exact: the return-render is for a decode(42) → order-status error
+                     (case return-render
+                       ("type error: expected 'order-status', got 42" 'ok)
+                       (other (ct:fail `#(wrong_return_render ,other)))))
                     ('false (ct:fail `#(renders_not_strings
                                         ,crash-render ,return-render))))))
                (other (ct:fail `#(decode_should_error ,other))))))))

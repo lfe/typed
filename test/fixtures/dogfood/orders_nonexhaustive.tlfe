@@ -1,0 +1,23 @@
+;; orders_nonexhaustive.tlfe — P-6b: status-label missing Delivered + Cancelled.
+;; 2
+;; 3
+;; 4
+;; 5
+(defmodule orders_nonexhaustive
+  (export (status-label 1)))
+
+(deftype order-status
+  (repr tagged-tuple)
+  (Pending)
+  (Processing (worker-id integer))
+  (Shipped (tracking string))
+  (Delivered)
+  (Cancelled (reason string)))
+
+(defun/typed status-label
+  :args ((s order-status))
+  :returns string
+  :body (case/typed s
+          ((Pending) "pending")
+          ((Processing id) "processing")
+          ((Shipped t) (++ "shipped: " t))))

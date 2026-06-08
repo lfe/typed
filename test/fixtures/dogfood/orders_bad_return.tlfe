@@ -1,0 +1,16 @@
+;; orders_bad_return.tlfe — P-6a: line-total declares :returns string but body is integer.
+;; 2
+;; 3
+;; 4
+;; 5
+(defmodule orders_bad_return
+  (export (line-total 2)))
+
+(deftype order-status
+  (repr tagged-tuple)
+  (Pending))
+
+(defun/typed line-total
+  :args ((qty integer) (price integer))
+  :returns string
+  :body (* qty price))

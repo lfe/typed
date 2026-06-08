@@ -21,7 +21,10 @@
    (p1_decode_valid 1)
    (p1_decode_invalid 1)
    (p1_decode_bad_field 1)
-   (p6_wrong_type_crashes 1)))
+   (p6_wrong_type_crashes 1)
+   (p6_static_wrong_return 1)
+   (p6_static_nonexhaustive 1)
+   (p6_decode_error_rendered 1)))
 
 (defun all ()
   '(p1_status_label
@@ -31,7 +34,10 @@
     p1_decode_valid
     p1_decode_invalid
     p1_decode_bad_field
-    p6_wrong_type_crashes))
+    p6_wrong_type_crashes
+    p6_static_wrong_return
+    p6_static_nonexhaustive
+    p6_decode_error_rendered))
 
 (defun suite () `(#(timetrap #(seconds 60))))
 (defun groups () ())
@@ -175,12 +181,76 @@
          (try (call 'orders 'line-total "three" 1500)
            (catch
              (`#(error #(type_error ,info) ,_)
-              (case (maps:get 'expected info)
-                ('integer 'ok)
-                (other (ct:fail `#(wrong_crash_expected ,other)))))
+              (let ((expected (maps:get 'expected info))
+                    (got (maps:get 'got info))
+                    (function (maps:get 'function info))
+                    (arg (maps:get 'arg info)))
+                (case (tuple expected function arg)
+                  (#(integer line-total 1)
+                   (case got
+                     ("three" 'ok)
+                     (other (ct:fail `#(wrong_got ,other)))))
+                  (other (ct:fail `#(wrong_error_fields ,other))))))
              (`#(error function_clause ,_)
               (ct:fail '#(got_function_clause)))))))
       (`#(error ,reason) (ct:fail `#(compile_failed ,reason))))))
+
+;;; P-6a: STATIC wrong-return — checker rejects orders_bad_return.tlfe
+
+(defun p6_static_wrong_return (config)
+  (let* ((checker-bin (proplists:get_value 'checker_bin config))
+         (fixture-dir (proplists:get_value 'fixture_dir config))
+         (priv-dir    (proplists:get_value 'priv_dir config))
+         (fixture     (filename:join (list fixture-dir "dogfood" "orders_bad_return.tlfe")))
+         (eetf-file   (filename:join priv-dir "orders_bad_return.eetf"))
+         (`#(,exit-code ,output) (run-checker checker-bin fixture eetf-file)))
+    (case (/= exit-code 0)
+      ('true
+       ;; Must contain the exact teaching diagnostic
+       (case (string:find output "body returns `number`, but contract declares `:returns string`")
+         ('nomatch (ct:fail `#(wrong_diagnostic ,output)))
+         (_ 'ok)))
+      ('false
+       (ct:fail '#(checker_should_have_rejected))))))
+
+;;; P-6b: STATIC non-exhaustive — checker rejects orders_nonexhaustive.tlfe
+
+(defun p6_static_nonexhaustive (config)
+  (let* ((checker-bin (proplists:get_value 'checker_bin config))
+         (fixture-dir (proplists:get_value 'fixture_dir config))
+         (priv-dir    (proplists:get_value 'priv_dir config))
+         (fixture     (filename:join (list fixture-dir "dogfood" "orders_nonexhaustive.tlfe")))
+         (eetf-file   (filename:join priv-dir "orders_nonexhaustive.eetf"))
+         (`#(,exit-code ,output) (run-checker checker-bin fixture eetf-file)))
+    (case (/= exit-code 0)
+      ('true
+       ;; Must name the missing constructors
+       (case (andalso (=/= 'nomatch (string:find output "Delivered"))
+                      (=/= 'nomatch (string:find output "Cancelled")))
+         ('true 'ok)
+         ('false (ct:fail `#(missing_ctor_names ,output)))))
+      ('false
+       (ct:fail '#(checker_should_have_rejected))))))
+
+;;; P-6c: decode error rendered through typed_rt:render_type_error
+
+(defun p6_decode_error_rendered (config)
+  (let* ((forms (check-and-decode config "dogfood" "orders.tlfe"))
+         (priv-dir (proplists:get_value 'priv_dir config)))
+    (case (typed_driver:compile_forms forms "orders.tlfe" priv-dir)
+      (`#(ok orders ,beam-bin)
+       (code:purge 'orders)
+       (let ((`#(module orders) (code:load_binary 'orders "orders.beam" beam-bin)))
+         ;; Decode a bad-field value and render the error
+         (case (call 'orders 'decode-order-status (tuple 'shipped 999))
+           (`#(error ,te)
+            (let ((rendered (typed_rt:render_type_error te)))
+              (case rendered
+                ("type error: expected string at .tracking, got 999" 'ok)
+                (other (ct:fail `#(wrong_render ,other))))))
+           (other (ct:fail `#(should_error ,other))))))
+      (`#(error ,reason)
+       (ct:fail `#(compile_failed ,reason))))))
 
 ;;; --- helpers ---
 
