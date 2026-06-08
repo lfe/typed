@@ -163,10 +163,11 @@ This project was planned before it was built. The reasoning is all in the open:
 ## Roadmap
 
 - **M0 — Skeleton & plumbing** ✅ *(the chain + line injection, proven end-to-end)*
-- **M1 — ADTs & representation** 🚧 *(deftype, constructors, the pluggable backends)*
-- **M2 — Pattern matching & exhaustiveness + the diagnostic engine**
-- **M3 — Function contracts & bidirectional checking**
-- **M4 — The typed/untyped interop boundary**
+- **M1 — ADTs & representation** ✅ *(deftype, constructors, pluggable repr backends, registry)*
+- **M2 — Pattern matching & exhaustiveness** ✅ *(case/typed, exhaustiveness rejection, the diagnostic engine)*
+- **M3 — Function contracts & bidirectional checking** ✅ *(body-vs-:returns, call-arg, field-value checking)*
+- **M3.5 — Cleanup** ✅ *(engine routing, branch typing, README demo, string/binary soundness)*
+- **M4 — The typed/untyped interop boundary** 🚧
 - **M5 — Polish & dogfooding on real LFE**
 
 Further out: per-expression source mapping (an upstream collaboration with LFE
@@ -177,10 +178,13 @@ NIF boundaries.
 
 ## Status
 
-`lfe/typed` does not work yet as a thing you can `rebar3 add` and start typing your
-modules with. What *does* exist is a settled architecture, a working compile chain,
-and a build plan executed under real verification discipline. The fun part — the
-syntax, the ADTs, the diagnostics — is happening now.
+`lfe/typed` is not yet packaged for `rebar3 add`, but the core static type system
+works end-to-end: ADTs with pluggable representation backends, exhaustive pattern
+matching that rejects non-exhaustive matches naming every missing constructor,
+bidirectional contract checking (body-vs-`:returns`, call-arg, field-value), and a
+diagnostic engine rendering Gleam-grade errors with span+caret in both human and
+JSON formats. The README `describe` example type-checks (correct version) and is
+rejected (wrong version). 63 Rust tests, 27 LFE CT tests, `make check` clean.
 
 If the ideas here interest you, the design docs are the best place to start, and
 feedback (especially on syntax) is enormously welcome.
