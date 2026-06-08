@@ -108,8 +108,8 @@
            (catch
              (`#(error #(type_error ,info) ,_stacktrace)
               ;; Structured type-error raised — this is the M4 headline
-              (let ((expected (proplists:get_value 'expected info))
-                    (function (proplists:get_value 'function info)))
+              (let ((expected (maps:get 'expected info))
+                    (function (maps:get 'function info)))
                 (case (tuple expected function)
                   (#(integer double) 'ok)
                   (other (ct:fail `#(wrong_error_fields ,other))))))
@@ -130,10 +130,10 @@
          (try (call 'guarded 'double "oops")
            (catch
              (`#(error #(type_error ,info) ,_)
-              (let ((expected (proplists:get_value 'expected info))
-                    (got (proplists:get_value 'got info))
-                    (function (proplists:get_value 'function info))
-                    (arg (proplists:get_value 'arg info)))
+              (let ((expected (maps:get 'expected info))
+                    (got (maps:get 'got info))
+                    (function (maps:get 'function info))
+                    (arg (maps:get 'arg info)))
                 (case (tuple expected function arg)
                   (#(integer double 1)
                    ;; 'got' should be the actual bad value
@@ -173,9 +173,9 @@
          (let ((result (call 'membrane 'decode-order-status (tuple 'shipped 42))))
            (case result
              (`#(error #(type_error ,info))
-              (let ((expected (proplists:get_value 'expected info))
-                    (got (proplists:get_value 'got info))
-                    (path (proplists:get_value 'path info)))
+              (let ((expected (maps:get 'expected info))
+                    (got (maps:get 'got info))
+                    (path (maps:get 'path info)))
                 (case (tuple expected got path)
                   (#(string 42 (tracking)) 'ok)
                   (other (ct:fail `#(wrong_bad_field_error ,other))))))
@@ -196,7 +196,7 @@
          (let ((result (call 'membrane 'decode-order-status (tuple 'shipped 42))))
            (case result
              (`#(error #(type_error ,info))
-              (let ((path (proplists:get_value 'path info)))
+              (let ((path (maps:get 'path info)))
                 (case path
                   ('(tracking) 'ok)
                   (other (ct:fail `#(wrong_path ,other))))))
@@ -224,7 +224,7 @@
                          (tuple 'cancelled 999))))
            (case invalid
              (`#(error #(type_error ,info))
-              (let ((expected (proplists:get_value 'expected info)))
+              (let ((expected (maps:get 'expected info)))
                 (case expected
                   ('string 'ok)
                   (other (ct:fail `#(wrong_expected_demo ,other))))))
@@ -250,7 +250,7 @@
          (let ((invalid (call 'colours 'decode-colour 'purple)))
            (case invalid
              (`#(error #(type_error ,info))
-              (let ((expected (proplists:get_value 'expected info)))
+              (let ((expected (maps:get 'expected info)))
                 (case expected
                   ('colour 'ok)
                   (other (ct:fail `#(wrong_enum_expected ,other))))))
@@ -276,7 +276,7 @@
          (let ((invalid (call 'ids 'decode-customer-id "not-an-int")))
            (case invalid
              (`#(error #(type_error ,info))
-              (let ((expected (proplists:get_value 'expected info)))
+              (let ((expected (maps:get 'expected info)))
                 (case expected
                   ('customer-id 'ok)
                   (other (ct:fail `#(wrong_transparent_expected ,other))))))
@@ -314,7 +314,7 @@
          (let ((result (call 'membrane 'decode-order-status 42)))
            (case result
              (`#(error #(type_error ,info))
-              (let ((expected (proplists:get_value 'expected info)))
+              (let ((expected (maps:get 'expected info)))
                 (case expected
                   ('order-status 'ok)
                   (other (ct:fail `#(wrong_expected ,other))))))
@@ -366,8 +366,8 @@
          (try (call 'describe_good 'describe (tuple 'bogus 1))
            (catch
              (`#(error #(type_error ,info) ,_)
-              (let ((expected (proplists:get_value 'expected info))
-                    (function (proplists:get_value 'function info)))
+              (let ((expected (maps:get 'expected info))
+                    (function (maps:get 'function info)))
                 (case (tuple expected function)
                   (#(order-status describe) 'ok)
                   (other (ct:fail `#(wrong_error_fields ,other))))))

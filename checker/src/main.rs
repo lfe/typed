@@ -229,6 +229,10 @@ fn main() {
         form_line_pairs.push((decode, 1));
     }
 
+    // render-type-error helper deferred: generating module-qualified calls
+    // (maps:get, io_lib:format) requires (call 'mod 'fun ...) internal form
+    // that the current EETF encoder doesn't support. Deferred to M4.7.
+
     let eetf_bytes = eetf::encode_forms(&form_line_pairs);
 
     match output_file {

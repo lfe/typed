@@ -138,31 +138,17 @@ pub fn type_error_term(
             quoted_atom("type_error"),
             SExp::List(List::new(
                 vec![
-                    sym("list"),
-                    SExp::List(List::new(
-                        vec![
-                            sym("tuple"),
-                            quoted_atom("expected"),
-                            quoted_atom(expected_type),
-                        ],
-                        dp(),
-                    )),
-                    SExp::List(List::new(
-                        vec![sym("tuple"), quoted_atom("got"), sym(var_name)],
-                        dp(),
-                    )),
-                    SExp::List(List::new(
-                        vec![sym("tuple"), quoted_atom("function"), quoted_atom(fun_name)],
-                        dp(),
-                    )),
-                    SExp::List(List::new(
-                        vec![
-                            sym("tuple"),
-                            quoted_atom("arg"),
-                            SExp::Number(Number::new((arg_index + 1).to_string(), dp())),
-                        ],
-                        dp(),
-                    )),
+                    sym("map"),
+                    quoted_atom("expected"),
+                    quoted_atom(expected_type),
+                    quoted_atom("got"),
+                    sym(var_name),
+                    quoted_atom("function"),
+                    quoted_atom(fun_name),
+                    quoted_atom("arg"),
+                    SExp::Number(Number::new((arg_index + 1).to_string(), dp())),
+                    quoted_atom("path"),
+                    SExp::List(List::new(vec![], dp())),
                 ],
                 dp(),
             )),

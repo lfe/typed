@@ -189,27 +189,13 @@ fn make_field_checks(tag: &str, fields: &[crate::adt::FieldDef]) -> SExp {
                                 quoted_atom("type_error"),
                                 SExp::List(List::new(
                                     vec![
-                                        sym("list"),
-                                        SExp::List(List::new(
-                                            vec![
-                                                sym("tuple"),
-                                                quoted_atom("expected"),
-                                                quoted_atom(field_type),
-                                            ],
-                                            dp(),
-                                        )),
-                                        SExp::List(List::new(
-                                            vec![sym("tuple"), quoted_atom("got"), sym(var)],
-                                            dp(),
-                                        )),
-                                        SExp::List(List::new(
-                                            vec![
-                                                sym("tuple"),
-                                                quoted_atom("path"),
-                                                field_path.clone(),
-                                            ],
-                                            dp(),
-                                        )),
+                                        sym("map"),
+                                        quoted_atom("expected"),
+                                        quoted_atom(field_type),
+                                        quoted_atom("got"),
+                                        sym(var),
+                                        quoted_atom("path"),
+                                        field_path.clone(),
                                     ],
                                     dp(),
                                 )),
@@ -256,23 +242,13 @@ fn make_error_result(type_name: &str, var: &str, path_var: &str) -> SExp {
                     quoted_atom("type_error"),
                     SExp::List(List::new(
                         vec![
-                            sym("list"),
-                            SExp::List(List::new(
-                                vec![
-                                    sym("tuple"),
-                                    quoted_atom("expected"),
-                                    quoted_atom(type_name),
-                                ],
-                                dp(),
-                            )),
-                            SExp::List(List::new(
-                                vec![sym("tuple"), quoted_atom("got"), sym(var)],
-                                dp(),
-                            )),
-                            SExp::List(List::new(
-                                vec![sym("tuple"), quoted_atom("path"), sym(path_var)],
-                                dp(),
-                            )),
+                            sym("map"),
+                            quoted_atom("expected"),
+                            quoted_atom(type_name),
+                            quoted_atom("got"),
+                            sym(var),
+                            quoted_atom("path"),
+                            sym(path_var),
                         ],
                         dp(),
                     )),
@@ -298,6 +274,162 @@ fn make_define_function(name: &str, args: Vec<String>, body: SExp) -> SExp {
         ],
         dp(),
     ))
+}
+
+#[expect(
+    dead_code,
+    reason = "deferred to M4.7: needs (call 'mod 'fun) EETF support"
+)]
+pub fn generate_render_helper() -> SExp {
+    // (define-function render-type-error () (match-lambda
+    //   ((#(type_error info))
+    //    (let ((expected (maps:get 'expected info))
+    //          (got (maps:get 'got info))
+    //          (path (maps:get 'path info '())))
+    //      (lists:flatten
+    //        (io_lib:format "type error: expected ~p~s, got ~p"
+    //          (list expected (render-path path) got)))))))
+    let body = SExp::List(List::new(
+        vec![
+            sym("match-lambda"),
+            SExp::List(List::new(
+                vec![
+                    SExp::List(List::new(
+                        vec![SExp::List(List::new(
+                            vec![sym("tuple"), quoted_atom("type_error"), sym("info")],
+                            dp(),
+                        ))],
+                        dp(),
+                    )),
+                    SExp::List(List::new(
+                        vec![
+                            sym("let"),
+                            SExp::List(List::new(
+                                vec![
+                                    SExp::List(List::new(
+                                        vec![
+                                            sym("expected"),
+                                            SExp::List(List::new(
+                                                vec![
+                                                    sym("maps:get"),
+                                                    quoted_atom("expected"),
+                                                    sym("info"),
+                                                ],
+                                                dp(),
+                                            )),
+                                        ],
+                                        dp(),
+                                    )),
+                                    SExp::List(List::new(
+                                        vec![
+                                            sym("got"),
+                                            SExp::List(List::new(
+                                                vec![
+                                                    sym("maps:get"),
+                                                    quoted_atom("got"),
+                                                    sym("info"),
+                                                ],
+                                                dp(),
+                                            )),
+                                        ],
+                                        dp(),
+                                    )),
+                                    SExp::List(List::new(
+                                        vec![
+                                            sym("path"),
+                                            SExp::List(List::new(
+                                                vec![
+                                                    sym("maps:get"),
+                                                    quoted_atom("path"),
+                                                    sym("info"),
+                                                    SExp::List(List::new(vec![], dp())),
+                                                ],
+                                                dp(),
+                                            )),
+                                        ],
+                                        dp(),
+                                    )),
+                                ],
+                                dp(),
+                            )),
+                            SExp::List(List::new(
+                                vec![
+                                    sym("lists:flatten"),
+                                    SExp::List(List::new(
+                                        vec![
+                                            sym("io_lib:format"),
+                                            SExp::String(StringLit::new(
+                                                "type error: expected ~p~s, got ~p",
+                                                dp(),
+                                            )),
+                                            SExp::List(List::new(
+                                                vec![
+                                                    sym("list"),
+                                                    sym("expected"),
+                                                    SExp::List(List::new(
+                                                        vec![
+                                                            sym("if"),
+                                                            SExp::List(List::new(
+                                                                vec![
+                                                                    sym("=:="),
+                                                                    sym("path"),
+                                                                    SExp::List(List::new(
+                                                                        vec![],
+                                                                        dp(),
+                                                                    )),
+                                                                ],
+                                                                dp(),
+                                                            )),
+                                                            SExp::String(StringLit::new("", dp())),
+                                                            SExp::List(List::new(
+                                                                vec![
+                                                                    sym("lists:flatten"),
+                                                                    SExp::List(List::new(
+                                                                        vec![
+                                                                            sym("io_lib:format"),
+                                                                            SExp::String(
+                                                                                StringLit::new(
+                                                                                    " at ~p",
+                                                                                    dp(),
+                                                                                ),
+                                                                            ),
+                                                                            SExp::List(List::new(
+                                                                                vec![
+                                                                                    sym("list"),
+                                                                                    sym("path"),
+                                                                                ],
+                                                                                dp(),
+                                                                            )),
+                                                                        ],
+                                                                        dp(),
+                                                                    )),
+                                                                ],
+                                                                dp(),
+                                                            )),
+                                                        ],
+                                                        dp(),
+                                                    )),
+                                                    sym("got"),
+                                                ],
+                                                dp(),
+                                            )),
+                                        ],
+                                        dp(),
+                                    )),
+                                ],
+                                dp(),
+                            )),
+                        ],
+                        dp(),
+                    )),
+                ],
+                dp(),
+            )),
+        ],
+        dp(),
+    ));
+
+    make_define_function_raw("render-type-error", body)
 }
 
 fn make_define_function_raw(name: &str, body: SExp) -> SExp {
