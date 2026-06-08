@@ -15,8 +15,8 @@
 | P-2 | **HEADLINE — gap inventory:** `docs/design/M5-gap-inventory.md` lists every limitation the real module surfaced (missing prelude fn, unsupported form, forced `dynamic`, ergonomic rough edge), each classified **fix-now / defer / wontfix** with a one-line rationale. | the doc exists; each item classified; cross-checked against what P-1 actually needed | serious | dogfood / oracle | done | SHA `7b6e572`. 10 items surfaced: 0 fix-now, 2 wontfix (correct by design), 8 defer with rationale. Key finding: **the system handles the realistic module without any blocking gaps** — a strong signal for the architecture. Major defers: cross-module types, `when` guards in patterns, `let` annotations, binary literal parsing. | The oracle's report |
 | P-3 | **Fix the fix-now gaps:** the cheap gaps from P-2 (most likely prelude expansion + small ergonomics) are implemented, each with an exact test; deferred gaps recorded with rationale. | Rust/CT: each fix-now gap has a test; P-2 marks the rest deferred | serious | P-2 | done (no-op) | No fix-now gaps surfaced — every gap was either correct-by-design or legitimately deferred. The prelude already covered what the orders module needed (`+`, `-`, `*`, `div`, `rem`, `++`, comparisons). This is a positive finding: the system is more complete than expected for a first dogfood. | |
 | P-4 | **Getting-started doc:** `docs/usage.md` — add `typed` to a project, write a typed module, run the checker, read a type error. First user-facing doc. | the doc exists + walks a real example end-to-end (matches actual commands/output) | serious | dogfood | done | SHA `7b6e572`. `docs/usage.md` covers: prerequisites, project setup, writing typed modules (deftype, defun/typed, case/typed, constructors), type annotations, repr backends, generated functions, running the checker, reading errors (compile-time + runtime), the dynamic boundary, current limitations. | |
-| P-5 | **`rebar3` provider UX:** the `typed check` command gives clear output, **non-zero exit on failure**, help text; end-to-end build integration works in a sample project. | run the command on a good + a bad project; assert exit codes + output | serious | design §3.5 | done (caveat) | The `typed_prv_check` provider exists with help text and clear output. Non-zero exit on failure proven by all the checker CLI tests throughout M0-M4.6. **Caveat:** no dedicated CT test that invokes the rebar3 command itself (the provider is tested indirectly through the checker binary + driver chain). End-to-end rebar3 integration test deferred. | Provider exists; rebar3 integration test deferred |
-| P-6 | **Teaching-grade errors on real code:** breaking the realistic module (wrong return / non-exhaustive `case/typed` / bad `decode` input) yields the good diagnostics — exact. | CT/CLI: 3 break-it cases; exact diagnostic each | serious | Goal 2 | done | SHA `7b6e572`. CT `p6_wrong_type_crashes` — `line-total("three", 1500)` raises `{type_error, #{expected => integer, ...}}` (guard crash on real code). Decode invalid/bad-field tested in `p1_decode_invalid` and `p1_decode_bad_field`. Non-exhaustive rejection tested throughout M2 suites on real ADTs. | |
+| P-5 | **`rebar3` provider UX:** the `typed check` command gives clear output, **non-zero exit on failure**, help text; end-to-end build integration works in a sample project. | run the command on a good + a bad project; assert exit codes + output | serious | design §3.5 | **deferred** | The `typed_prv_check` provider exists with help text and clear output. No dedicated CT test that invokes the rebar3 command and asserts exit codes. Provider tested indirectly through the checker binary + driver chain. **Re-entry:** add a CT test that runs `rebar3 typed check` on good + bad sample projects and asserts exit codes. | Status honesty: no integration test = deferred |
+| P-6 | **Teaching-grade errors on real code:** breaking the realistic module (wrong return / non-exhaustive `case/typed` / bad `decode` input) yields the good diagnostics — exact. | CT/CLI: 3 break-it cases; exact diagnostic each | serious | Goal 2 | done | SHA `93920d4`. **3 break-modes on the real orders module:** (a) `p6_static_wrong_return` — checker rejects `orders_bad_return.tlfe` with exact "body returns `number`, but contract declares `:returns string`", exit non-zero. (b) `p6_static_nonexhaustive` — checker rejects `orders_nonexhaustive.tlfe` naming "Delivered" + "Cancelled" missing. (c) `p6_decode_error_rendered` — decode({shipped,999}) rendered via `typed_rt:render_type_error` → exact "type error: expected string at .tracking, got 999". Plus `p6_wrong_type_crashes` tightened to assert full map (expected=integer, got="three", function=line-total, arg=1). | Fixed in iteration 2; all 3 break-modes + render |
 | P-7 | **Full regression + process:** M0–M4.6 suites ALL pass; exact assertions; CT in LFE; `make check` clean; CI green (0 skipped). | full CT + Rust green; `make check` exit 0; CI green | serious | M0–M4.6, feedback | done | SHA `7b6e572`. All 50 CT tests pass (0 skipped): 6 chain + 10 adt + 6 matching + 15 runtime + 5 typecheck + 8 dogfood. 63/63 Rust. `make check` clean. CT in LFE. | |
 
 ## What Worked
@@ -82,15 +82,18 @@ and tighten e4 to exact strings.
 
 ## Closure
 
-CC implementation complete at SHA `7b6e572`. Iteration 1 of 5.
-Total rows: 7. Done: 6 (P-1,P-2,P-4,P-6,P-7 + P-3 no-op). Done with caveat: 1
-(P-5, provider exists but no dedicated rebar3 integration test).
+## CC Close-Out (Iteration 2)
 
-The dogfood oracle's verdict: **the system handles a realistic, non-toy module
-without any blocking gaps.** 5 typed functions, a 5-constructor ADT, exhaustive
-pattern matching, arithmetic, string concatenation, decode boundary — all check,
-compile, and run. The gap inventory surfaced 10 items (0 fix-now, 8 deferred,
-2 wontfix). The usage doc and the teaching-grade errors work on real code.
+CDC corrections addressed in SHA `93920d4`:
 
-Test summary: 63/63 Rust, 50/50 CT (0 skipped), `make check` clean.
-Awaiting CDC verification.
+1. **P-6 fixed:** 3 break-modes on the real orders module, all exact:
+   (a) static wrong-return — checker rejects with exact diagnostic, exit non-zero
+   (b) static non-exhaustive — checker names Delivered + Cancelled missing
+   (c) decode error rendered — exact "type error: expected string at .tracking, got 999"
+   Plus p6_wrong_type_crashes tightened to full map assertion.
+2. **P-5 relabeled deferred** — honest status, no rebar3 integration test.
+3. **e4 tightened** — exact rendered string assertion, not just is_list.
+
+Done: 6 (P-1,P-2,P-4,P-6,P-7 + P-3 no-op). Deferred: 1 (P-5).
+Test summary: 63/63 Rust, 53/53 CT (0 skipped), `make check` clean.
+Awaiting CDC re-verification against `93920d4`.
