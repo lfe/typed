@@ -34,7 +34,51 @@
 
 ## CDC Verification
 
-_(Filled in by CDC against the closing SHA.)_
+**Verifier:** Claude (CDC), 2026-06-07, against `d8419b5` / `7b6e572`. **Method:** static
+inspection of `orders.tlfe`, `typed_dogfood_SUITE.lfe`, `M5-gap-inventory.md`, `usage.md`;
+grep for static-rejection tests; cross-check of each row against its criterion.
+
+**ACCEPTED with conditions — NOT a clean close. P-6 reopened; P-5 re-classified.**
+
+- **P-1 ✅ verified.** `orders.tlfe` is a genuine non-toy module: 4 hand-written `defun/typed`
+  + 2 generated (`decode-order-status/1`, `validate-order-status/2` — generated from the
+  `deftype`, exported by convention, consistent with `membrane.tlfe`; the bare exports are NOT
+  undefined functions). All 8 CT assertions are **exact** (`4500`, `800`, `#(ok #(shipped
+  "ABC"))`, `expected=order-status`, `#(string (tracking))`). Runs end-to-end through the full
+  chain. Strong.
+- **P-2 ✅ verified — the milestone's real payoff.** Gap inventory is honest and well-
+  classified; the 8 defers are real ergonomic/scope limits (auto-export validators, record
+  sugar, `let` annotations, `when`-guards, binary `#"..."` lexing, cross-module types). 0
+  fix-now is credible given the inventory. Excellent.
+- **P-3 ✅** legit no-op (follows from P-2's honest 0 fix-now).
+- **P-4 ✅** `docs/usage.md` exists (168 lines), covers the real example end-to-end.
+- **P-5 ⚠️ RE-CLASSIFIED done-caveat → DEFERRED.** The criterion requires running the command
+  on a good + a bad project and **asserting exit codes**. That verification does not exist —
+  only indirect coverage via the checker binary. "Provider exists" ≠ "UX verified per
+  criterion." Per status-honesty ([[typed-test-discipline]]), this is a **deferred** row with
+  rationale, not done. (Low risk; legitimately deferrable — but label it honestly.)
+- **P-6 ❌ OVERCLAIMED — reopened.** Criterion: break the realistic module **3 ways** (wrong
+  return / non-exhaustive `case/typed` / bad decode) → **exact** teaching diagnostic each.
+  Delivered: only `p6_wrong_type_crashes` (a wrong-**arg** runtime guard crash, asserting only
+  `expected=integer`, not exact/full) + reuse of the P-1 runtime decode tests. **Missing:**
+  (a) non-exhaustive `case/typed` on `orders.tlfe`; (b) wrong-**return** on `orders.tlfe`;
+  (c) crucially, **NOT ONE test exercises the static checker rejecting the realistic module
+  with a teaching diagnostic** — every P-6/decode test is a *runtime* error. P-6 is literally
+  "teaching errors on real code" (Goal 2, the headline value prop), and the *static* teaching
+  path is untested on real code. The row's "tested throughout M2 suites" is a dodge — M2 runs
+  on M2 fixtures, not `orders.tlfe`. Same recurring pattern: green count (50/50) hiding an
+  unmet criterion.
+- **P-7 ✅** regression green (50 CT / 63 Rust / `make check` clean) — but the **e4 assertion
+  tightening** carried over from M4.6 (still `is_list`, not exact strings) did NOT happen.
+  That's on me — it was noted only in the M4.6 ledger, not the M5 prompt. Carry into the M5
+  iteration-2 cleanup.
+
+**Disposition:** the dogfood succeeded at what matters most — a real module runs and the gap
+inventory is honest and valuable (P-1/P-2). But M5 does **not** close clean: P-6 didn't meet
+its own criterion (no static teaching diagnostic on real code; 1 of 3 break-modes; not exact),
+and P-5 was mislabeled. **M5 iteration 2** (small cleanup): add the 3 P-6 break-modes as exact
+tests on `orders.tlfe` — including the static checker-rejection path — relabel P-5 deferred,
+and tighten e4 to exact strings.
 
 ## Closure
 
