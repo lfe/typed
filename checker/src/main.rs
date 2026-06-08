@@ -10,6 +10,7 @@ mod sexp;
 mod type_env;
 mod typecheck;
 mod typed_surface;
+mod validators;
 
 use std::path::Path;
 use std::process;
@@ -210,6 +211,14 @@ fn main() {
 
     for lf in &lowered_funs {
         form_line_pairs.push((lf.module_form.clone(), lf.line));
+    }
+
+    // Emit validator + decode functions for each ADT
+    for adt_def in &all_adts {
+        let validator = validators::generate_validator(adt_def, otp_version);
+        form_line_pairs.push((validator, 1));
+        let decode = validators::generate_decode(adt_def, otp_version);
+        form_line_pairs.push((decode, 1));
     }
 
     let eetf_bytes = eetf::encode_forms(&form_line_pairs);

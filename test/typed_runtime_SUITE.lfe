@@ -26,13 +26,21 @@
    ;; M4-4: structured error has expected fields
    (m4_4_structured_error_fields 1)
    ;; M4-2: wrong-tagged tuple rejected by ADT guard
-   (m4_2_wrong_tag_rejected 1)))
+   (m4_2_wrong_tag_rejected 1)
+   ;; D-3: decode valid + invalid
+   (d3_decode_valid 1)
+   (d3_decode_invalid 1)
+   ;; D-4: duality — same bad value crashes via head, returns error via decode
+   (d4_duality 1)))
 
 (defun all ()
   '(m4_1_correct_call_passes
     m4_3_wrong_arg_crashes
     m4_4_structured_error_fields
-    m4_2_wrong_tag_rejected))
+    m4_2_wrong_tag_rejected
+    d3_decode_valid
+    d3_decode_invalid
+    d4_duality))
 
 (defun suite () `(#(timetrap #(seconds 60))))
 
@@ -117,6 +125,69 @@
                      ("oops" 'ok)
                      (other (ct:fail `#(wrong_got_value ,other)))))
                   (other (ct:fail `#(wrong_fields ,other))))))))))
+      (`#(error ,reason)
+       (ct:fail `#(compile_failed ,reason))))))
+
+;;; D-3: decode — valid value → #(ok T)
+
+(defun d3_decode_valid (config)
+  (let* ((forms (check-and-decode config "runtime" "membrane.tlfe"))
+         (priv-dir (proplists:get_value 'priv_dir config)))
+    (case (typed_driver:compile_forms forms "membrane.tlfe" priv-dir)
+      (`#(ok membrane ,beam-bin)
+       (code:purge 'membrane)
+       (let ((`#(module membrane) (code:load_binary 'membrane "membrane.beam" beam-bin)))
+         ;; Decode a valid pending value
+         (let ((result (call 'membrane 'decode-order-status 'pending)))
+           (case result
+             (#(ok pending) 'ok)
+             (other (ct:fail `#(wrong_decode_valid ,other)))))))
+      (`#(error ,reason)
+       (ct:fail `#(compile_failed ,reason))))))
+
+;;; D-3: decode — invalid value → #(error #(type_error ...))
+
+(defun d3_decode_invalid (config)
+  (let* ((forms (check-and-decode config "runtime" "membrane.tlfe"))
+         (priv-dir (proplists:get_value 'priv_dir config)))
+    (case (typed_driver:compile_forms forms "membrane.tlfe" priv-dir)
+      (`#(ok membrane ,beam-bin)
+       (code:purge 'membrane)
+       (let ((`#(module membrane) (code:load_binary 'membrane "membrane.beam" beam-bin)))
+         ;; Decode an invalid value — wrong tag, should return error not crash
+         (let ((result (call 'membrane 'decode-order-status 42)))
+           (case result
+             (`#(error #(type_error ,info))
+              (let ((expected (proplists:get_value 'expected info)))
+                (case expected
+                  ('order-status 'ok)
+                  (other (ct:fail `#(wrong_expected ,other))))))
+             (other (ct:fail `#(wrong_decode_invalid ,other)))))))
+      (`#(error ,reason)
+       (ct:fail `#(compile_failed ,reason))))))
+
+;;; D-4: duality — same bad value crashes via head, returns error via decode
+
+(defun d4_duality (config)
+  (let* ((forms (check-and-decode config "runtime" "membrane.tlfe"))
+         (priv-dir (proplists:get_value 'priv_dir config)))
+    (case (typed_driver:compile_forms forms "membrane.tlfe" priv-dir)
+      (`#(ok membrane ,beam-bin)
+       (code:purge 'membrane)
+       (let ((`#(module membrane) (code:load_binary 'membrane "membrane.beam" beam-bin)))
+         (let ((bad-value 42))
+           ;; Via decode: returns #(error ...)
+           (let ((decode-result (call 'membrane 'decode-order-status bad-value)))
+             (case decode-result
+               (`#(error #(type_error ,_info))
+                ;; Via head guard: crashes
+                (try (call 'membrane 'describe bad-value)
+                  (catch
+                    (`#(error #(type_error ,_info2) ,_st)
+                     'ok)
+                    (`#(error function_clause ,_)
+                     (ct:fail '#(got_function_clause_not_type_error))))))
+               (other (ct:fail `#(decode_should_return_error ,other))))))))
       (`#(error ,reason)
        (ct:fail `#(compile_failed ,reason))))))
 
