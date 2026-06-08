@@ -1629,3 +1629,181 @@ fn r7_unknown_field_accessor_diagnostic() {
         "test.lfe:1:1: unknown field `bogus` on record `order`; available fields: id, status, total"
     );
 }
+
+// ============================================================
+// M7 tests — Cross-Module Type References
+// ============================================================
+
+#[test]
+fn x1_roundtrip_record() {
+    let input = "(defrecord/typed order (id integer) (status atom) (total integer))";
+    let form = Parser::parse_str(input).unwrap();
+    let original = adt::extract_defrecord(&form).unwrap();
+
+    let registry = lower::lower_registry_attr(&[original.clone()]);
+    let entry = match &registry {
+        SExp::List(l) => &l.elements[0],
+        _ => panic!("expected list"),
+    };
+    let deserialized = lower::deserialize_registry_entry(entry).unwrap();
+
+    assert_eq!(deserialized.name, original.name);
+    assert_eq!(deserialized.type_params, original.type_params);
+    assert_eq!(deserialized.repr, original.repr);
+    assert_eq!(deserialized.constructors.len(), original.constructors.len());
+    assert_eq!(
+        deserialized.constructors[0].name,
+        original.constructors[0].name
+    );
+    assert_eq!(
+        deserialized.constructors[0].fields.len(),
+        original.constructors[0].fields.len()
+    );
+    for (d, o) in deserialized.constructors[0]
+        .fields
+        .iter()
+        .zip(original.constructors[0].fields.iter())
+    {
+        assert_eq!(d.name, o.name);
+        assert_eq!(d.type_expr, o.type_expr);
+    }
+}
+
+#[test]
+fn x1_roundtrip_parametric() {
+    let input = r#"(deftype (result ok err)
+  (repr tagged-tuple)
+  (Ok    (value ok))
+  (Error (reason err)))"#;
+    let form = Parser::parse_str(input).unwrap();
+    let original = adt::extract_deftype(&form).unwrap();
+
+    let registry = lower::lower_registry_attr(&[original.clone()]);
+    let entry = match &registry {
+        SExp::List(l) => &l.elements[0],
+        _ => panic!("expected list"),
+    };
+    let deserialized = lower::deserialize_registry_entry(entry).unwrap();
+
+    assert_eq!(deserialized.name, "result");
+    assert_eq!(deserialized.type_params, vec!["ok", "err"]);
+    assert_eq!(deserialized.repr, adt::ReprKind::TaggedTuple);
+    assert_eq!(deserialized.constructors.len(), 2);
+    assert_eq!(deserialized.constructors[0].name, "Ok");
+    assert_eq!(deserialized.constructors[0].fields[0].name, "value");
+    assert_eq!(deserialized.constructors[0].fields[0].type_expr, "ok");
+    assert_eq!(deserialized.constructors[1].name, "Error");
+    assert_eq!(deserialized.constructors[1].fields[0].name, "reason");
+    assert_eq!(deserialized.constructors[1].fields[0].type_expr, "err");
+}
+
+#[test]
+fn x1_roundtrip_enum() {
+    let input = "(deftype colour (repr enum) (Red) (Green) (Blue))";
+    let form = Parser::parse_str(input).unwrap();
+    let original = adt::extract_deftype(&form).unwrap();
+
+    let registry = lower::lower_registry_attr(&[original.clone()]);
+    let entry = match &registry {
+        SExp::List(l) => &l.elements[0],
+        _ => panic!("expected list"),
+    };
+    let deserialized = lower::deserialize_registry_entry(entry).unwrap();
+
+    assert_eq!(deserialized.name, "colour");
+    assert_eq!(deserialized.repr, adt::ReprKind::Enum);
+    assert_eq!(deserialized.constructors.len(), 3);
+    assert_eq!(deserialized.constructors[0].name, "Red");
+    assert_eq!(deserialized.constructors[1].name, "Green");
+    assert_eq!(deserialized.constructors[2].name, "Blue");
+    for ctor in &deserialized.constructors {
+        assert!(ctor.fields.is_empty());
+    }
+}
+
+#[test]
+fn x3_qualified_type_parses_in_args() {
+    let input = r#"(defun/typed handle
+  :args ((o orders:order))
+  :returns integer
+  :body 42)"#;
+    let form = Parser::parse_str(input).unwrap();
+    let tf = typed_surface::extract_typed_fun(&form).unwrap();
+    assert_eq!(tf.args[0].0, "o");
+    assert_eq!(tf.args[0].1, "orders:order");
+}
+
+#[test]
+fn x3_qualified_type_parses_in_returns() {
+    let input = r#"(defun/typed make-it
+  :args ((x integer))
+  :returns orders:order
+  :body x)"#;
+    let form = Parser::parse_str(input).unwrap();
+    let tf = typed_surface::extract_typed_fun(&form).unwrap();
+    assert_eq!(tf.returns, "orders:order");
+}
+
+#[test]
+fn x4_import_types_extraction() {
+    let input = "(import-types (from orders (order-status order)))";
+    let form = Parser::parse_str(input).unwrap();
+    let imports = crate::cross_module::extract_import_types(&form).unwrap();
+    assert_eq!(imports.len(), 2);
+    assert_eq!(imports[0].local_name, "order-status");
+    assert_eq!(imports[0].module, "orders");
+    assert_eq!(imports[0].type_name, "order-status");
+    assert_eq!(imports[1].local_name, "order");
+    assert_eq!(imports[1].module, "orders");
+}
+
+#[test]
+fn x5_validate_unknown_module() {
+    let registry = crate::cross_module::ProjectRegistry::new();
+    let imp = crate::cross_module::ImportedType {
+        local_name: "foo".to_string(),
+        module: "bogus".to_string(),
+        type_name: "foo".to_string(),
+    };
+    let errs = crate::cross_module::validate_imports(
+        &[imp],
+        &registry,
+        "test.tlfe",
+        crate::error::Position::new(0, 1, 1),
+    );
+    assert_eq!(errs.len(), 1);
+    let msg = format!("{}", errs[0]);
+    assert_eq!(
+        msg,
+        "test.tlfe:1:1: unknown module `bogus`; no `.tlfe` file declares module `bogus`"
+    );
+}
+
+#[test]
+fn x5_validate_unknown_type_in_known_module() {
+    let mut registry = crate::cross_module::ProjectRegistry::new();
+    registry.modules.insert(
+        "orders".to_string(),
+        vec![adt::extract_defrecord(
+            &Parser::parse_str("(defrecord/typed order (id integer))").unwrap(),
+        )
+        .unwrap()],
+    );
+    let imp = crate::cross_module::ImportedType {
+        local_name: "nonexistent".to_string(),
+        module: "orders".to_string(),
+        type_name: "nonexistent".to_string(),
+    };
+    let errs = crate::cross_module::validate_imports(
+        &[imp],
+        &registry,
+        "test.tlfe",
+        crate::error::Position::new(0, 1, 1),
+    );
+    assert_eq!(errs.len(), 1);
+    let msg = format!("{}", errs[0]);
+    assert_eq!(
+        msg,
+        "test.tlfe:1:1: unknown type `nonexistent` in module `orders`"
+    );
+}

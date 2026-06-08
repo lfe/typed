@@ -1,4 +1,5 @@
 mod adt;
+mod cross_module;
 mod diagnostic;
 mod eetf;
 mod error;
@@ -61,6 +62,8 @@ fn main() {
     let mut had_error = false;
     let mut env = type_env::TypeEnv::new();
     let mut pending_forms: Vec<&sexp::types::SExp> = Vec::new();
+    let mut imports: Vec<cross_module::ImportedType> = Vec::new();
+    let mut local_type_names: Vec<String> = Vec::new();
 
     for form in &forms {
         if let Some(mdef) = typed_surface::extract_module_def(form) {
@@ -72,6 +75,7 @@ fn main() {
         if is_deftype(form) {
             match adt::extract_deftype(form) {
                 Ok(adt_def) => {
+                    local_type_names.push(adt_def.name.clone());
                     env.register(adt_def);
                 }
                 Err(e) => {
@@ -86,6 +90,7 @@ fn main() {
         if is_defrecord_typed(form) {
             match adt::extract_defrecord(form) {
                 Ok(adt_def) => {
+                    local_type_names.push(adt_def.name.clone());
                     env.register(adt_def);
                 }
                 Err(e) => {
@@ -97,7 +102,53 @@ fn main() {
             continue;
         }
 
+        if is_import_types(form) {
+            if let Some(imp) = cross_module::extract_import_types(form) {
+                imports.extend(imp);
+            }
+            continue;
+        }
+
         pending_forms.push(form);
+    }
+
+    // Cross-module: scan project for sibling .tlfe types
+    let project_registry = cross_module::scan_project(input_file);
+
+    // Validate imports against the project registry
+    for imp in &imports {
+        let errs = cross_module::validate_imports(
+            std::slice::from_ref(imp),
+            &project_registry,
+            source_name,
+            error::Position::new(0, 1, 1),
+        );
+        for e in errs {
+            eprintln!("{}", e);
+            had_error = true;
+        }
+    }
+
+    // Register cross-module types with qualified names
+    for (mod_name, types) in &project_registry.modules {
+        if *mod_name == module_name {
+            continue;
+        }
+        for adt_def in types {
+            let mut qualified = adt_def.clone();
+            qualified.name = format!("{}:{}", mod_name, adt_def.name);
+            env.register(qualified);
+        }
+    }
+
+    // Register import aliases: bare name → qualified name
+    for imp in &imports {
+        let qualified_name = format!("{}:{}", imp.module, imp.type_name);
+        if let Some(adt_def) = env.lookup_type(&qualified_name).cloned() {
+            let mut alias = adt_def.clone();
+            alias.name = imp.local_name.clone();
+            env.register(alias);
+        }
     }
 
     let ctor_names = env.all_ctor_names();
@@ -167,6 +218,32 @@ fn main() {
         if is_defun_typed(form) {
             match typed_surface::extract_typed_fun(form) {
                 Ok(tf) => {
+                    // Validate qualified type references in contract
+                    for (_arg_name, arg_type) in &tf.args {
+                        if let Err(e) = validate_type_ref(
+                            arg_type,
+                            &env,
+                            &project_registry,
+                            &module_name,
+                            source_name,
+                            tf.pos,
+                        ) {
+                            eprintln!("{}", e);
+                            had_error = true;
+                        }
+                    }
+                    if let Err(e) = validate_type_ref(
+                        &tf.returns,
+                        &env,
+                        &project_registry,
+                        &module_name,
+                        source_name,
+                        tf.pos,
+                    ) {
+                        eprintln!("{}", e);
+                        had_error = true;
+                    }
+
                     // Type-check the body against the contract
                     let mut body_env = typecheck::BodyEnv::new();
                     for (arg_name, arg_type) in &tf.args {
@@ -254,7 +331,11 @@ fn main() {
         process::exit(1);
     }
 
-    let all_adts: Vec<_> = env.all_types().cloned().collect();
+    let all_adts: Vec<_> = env
+        .all_types()
+        .filter(|adt| local_type_names.contains(&adt.name))
+        .cloned()
+        .collect();
     let mut extra_attrs = Vec::new();
     if !all_adts.is_empty() {
         let registry = lower::lower_registry_attr(&all_adts);
@@ -527,6 +608,65 @@ fn is_case_typed(form: &sexp::types::SExp) -> bool {
     matches!(form, sexp::types::SExp::List(l)
         if !l.elements.is_empty()
             && matches!(&l.elements[0], sexp::types::SExp::Symbol(s) if s.value == "case/typed"))
+}
+
+fn validate_type_ref(
+    type_str: &str,
+    env: &type_env::TypeEnv,
+    project_registry: &cross_module::ProjectRegistry,
+    current_module: &str,
+    file: &str,
+    pos: error::Position,
+) -> Result<(), error::CheckError> {
+    if type_str.contains(':') {
+        let (mod_name, type_name) = type_str.split_once(':').unwrap();
+        if mod_name == current_module {
+            return Ok(());
+        }
+        if !project_registry.module_exists(mod_name) {
+            return Err(error::CheckError::Diagnostic {
+                file: file.to_string(),
+                pos,
+                message: format!(
+                    "unknown module `{}`; no `.tlfe` file declares module `{}`",
+                    mod_name, mod_name
+                ),
+            });
+        }
+        if project_registry
+            .type_in_module(mod_name, type_name)
+            .is_none()
+        {
+            return Err(error::CheckError::Diagnostic {
+                file: file.to_string(),
+                pos,
+                message: format!("unknown type `{}` in module `{}`", type_name, mod_name),
+            });
+        }
+    } else if !matches!(
+        type_str,
+        "integer"
+            | "float"
+            | "number"
+            | "atom"
+            | "boolean"
+            | "binary"
+            | "string"
+            | "list"
+            | "dynamic"
+            | "map"
+    ) && env.lookup_type(type_str).is_none()
+    {
+        // Not a builtin, not a local type — could be a bare imported name (already resolved)
+        // or genuinely unknown. For now, let it through (import aliases are registered).
+    }
+    Ok(())
+}
+
+fn is_import_types(form: &sexp::types::SExp) -> bool {
+    matches!(form, sexp::types::SExp::List(l)
+        if !l.elements.is_empty()
+            && matches!(&l.elements[0], sexp::types::SExp::Symbol(s) if s.value == "import-types"))
 }
 
 fn is_defrecord_typed(form: &sexp::types::SExp) -> bool {

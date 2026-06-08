@@ -120,10 +120,52 @@ The checker synthesizes accessor return types from the record definition:
 `(item-qty it)` is known to return `integer`, not `dynamic`. This enables
 full type checking of functions that use record accessors.
 
+## Cross-Module Types
+
+Types declared in one `.tlfe` module can be referenced from another. The checker
+scans sibling `.tlfe` files in the same directory, building a combined type
+registry before checking any module.
+
+### Qualified `mod:type`
+
+Use `module-name:type-name` in type positions:
+
+```lisp
+;; orders_web.tlfe — consumes the `order` record from orders.tlfe
+(defmodule orders_web
+  (export (get-order-total 1)))
+
+(defun/typed get-order-total
+  :args ((o orders:order))
+  :returns integer
+  :body (element 4 o))
+```
+
+### `import-types`
+
+Import types by name to use bare references:
+
+```lisp
+(defmodule orders_web
+  (export (get-order-total 1)))
+
+(import-types (from orders (order)))
+
+(defun/typed get-order-total
+  :args ((o order))
+  :returns integer
+  :body (element 4 o))
+```
+
+Both forms produce the same result. The checker statically rejects:
+- Unknown module: `bogus:foo` → *"unknown module `bogus`"*
+- Unknown type in a known module: `orders:nonexistent` → *"unknown type `nonexistent` in module `orders`"*
+- Bad import: `(import-types (from orders (nonexistent)))` → same
+
 ## Running the Checker
 
 ```sh
-# Check a single file
+# Check a single file (auto-scans sibling .tlfe for cross-module types)
 typed/checker/target/debug/typed-check your-module.tlfe --output your-module.eetf
 
 # Then compile through the driver
@@ -200,7 +242,7 @@ Runtime enforcement at the boundary uses `decode-<typename>/1`:
 ## Current Limitations
 
 See `docs/design/M5-gap-inventory.md` for the full list. Key ones:
-- No cross-module type references (types must be in the same `.tlfe` file)
+- No cross-module *function* imports (types cross modules; functions don't yet)
 - No `when` guards in `case/typed` patterns
 - No `let` type annotations (bindings typed by synthesis)
 - Binary literals (`#"..."`) not yet supported by the parser

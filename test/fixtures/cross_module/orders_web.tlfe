@@ -1,0 +1,7 @@
+(defmodule orders_web
+  (export (get-order-total 1)))
+
+(defun/typed get-order-total
+  :args ((o orders:order))
+  :returns integer
+  :body (element 4 o))

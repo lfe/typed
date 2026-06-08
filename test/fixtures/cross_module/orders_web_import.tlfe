@@ -1,0 +1,9 @@
+(defmodule orders_web_import
+  (export (get-order-total 1)))
+
+(import-types (from orders (order)))
+
+(defun/typed get-order-total
+  :args ((o order))
+  :returns integer
+  :body (element 4 o))

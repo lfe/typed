@@ -175,6 +175,7 @@ This project was planned before it was built. The reasoning is all in the open:
 - **M4 — The typed/untyped interop boundary** ✅ *(always-on guards, structured type-errors, deep validators, decode membrane)*
 - **M5 — Polish & dogfooding on real LFE** ✅ *(dogfood on orders.tlfe, gap inventory, map errors, usage docs)*
 - **M6 — Typed records** ✅ *(defrecord/typed, make-/accessors/set-, type-aware synthesis, registry)*
+- **M7 — Cross-module type references** ✅ *(qualified mod:type, import-types, project scan, static diagnostics)*
 
 Further out: per-expression source mapping (an upstream collaboration with LFE
 itself), and a typed-ADT ↔ Rust bridge for [Rustler](https://github.com/rusterlium/rustler)
@@ -189,10 +190,11 @@ works end-to-end: ADTs with pluggable representation backends, exhaustive patter
 matching that rejects non-exhaustive matches naming every missing constructor,
 bidirectional contract checking (body-vs-`:returns`, call-arg, field-value),
 always-on runtime guards with structured type-errors, deep validators/decode for
-the typed/untyped boundary, and typed records (`defrecord/typed`) with generated
-constructors, accessors, and functional updaters — all type-aware. The diagnostic
+the typed/untyped boundary, typed records (`defrecord/typed`) with generated
+constructors, accessors, and functional updaters — all type-aware — and cross-module
+type references (`mod:type` and `import-types`) with project scanning. The diagnostic
 engine renders Gleam-grade errors with span+caret in both human and JSON formats.
-74 Rust tests, 65 LFE CT tests, `make check` clean.
+82 Rust tests, 71 LFE CT tests, `make check` clean.
 
 If the ideas here interest you, the design docs are the best place to start, and
 feedback (especially on syntax) is enormously welcome.

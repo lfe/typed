@@ -261,6 +261,121 @@ pub fn lower_registry_attr(adts: &[AdtDef]) -> SExp {
     SExp::List(List::new(type_entries, dp()))
 }
 
+#[cfg(test)]
+pub fn deserialize_registry_entry(entry: &SExp) -> Result<AdtDef, String> {
+    let list = match entry {
+        SExp::List(l) => l,
+        _ => return Err("registry entry must be a list".to_string()),
+    };
+    if list.elements.len() != 4 {
+        return Err(format!(
+            "registry entry needs 4 elements (name params repr ctors), got {}",
+            list.elements.len()
+        ));
+    }
+
+    let name = match &list.elements[0] {
+        SExp::Symbol(s) => s.value.clone(),
+        _ => return Err("registry entry[0] must be a type name symbol".to_string()),
+    };
+
+    let type_params = match &list.elements[1] {
+        SExp::List(l) => l
+            .elements
+            .iter()
+            .map(|e| match e {
+                SExp::Symbol(s) => Ok(s.value.clone()),
+                _ => Err("type param must be a symbol".to_string()),
+            })
+            .collect::<Result<Vec<_>, _>>()?,
+        _ => return Err("registry entry[1] must be a params list".to_string()),
+    };
+
+    let repr = match &list.elements[2] {
+        SExp::Symbol(s) => match s.value.as_str() {
+            "tagged-tuple" => ReprKind::TaggedTuple,
+            "enum" => ReprKind::Enum,
+            "transparent" => ReprKind::Transparent,
+            "native-record" => ReprKind::NativeRecord,
+            "default" => ReprKind::Default,
+            other => return Err(format!("unknown repr: {other}")),
+        },
+        _ => return Err("registry entry[2] must be a repr symbol".to_string()),
+    };
+
+    let constructors = match &list.elements[3] {
+        SExp::List(ctors_list) => ctors_list
+            .elements
+            .iter()
+            .map(deserialize_ctor)
+            .collect::<Result<Vec<_>, _>>()?,
+        _ => return Err("registry entry[3] must be a constructors list".to_string()),
+    };
+
+    Ok(AdtDef {
+        name,
+        type_params,
+        constructors,
+        repr,
+        pos: Position::new(0, 0, 0),
+    })
+}
+
+#[cfg(test)]
+fn deserialize_ctor(sexp: &SExp) -> Result<CtorDef, String> {
+    let list = match sexp {
+        SExp::List(l) => l,
+        _ => return Err("constructor entry must be a list".to_string()),
+    };
+    if list.elements.len() != 2 {
+        return Err(format!(
+            "constructor needs 2 elements (name fields), got {}",
+            list.elements.len()
+        ));
+    }
+
+    let name = match &list.elements[0] {
+        SExp::Symbol(s) => s.value.clone(),
+        _ => return Err("constructor name must be a symbol".to_string()),
+    };
+
+    let fields = match &list.elements[1] {
+        SExp::List(fields_list) => fields_list
+            .elements
+            .iter()
+            .map(|f| {
+                let fl = match f {
+                    SExp::List(l) => l,
+                    _ => return Err("field must be a (name type) list".to_string()),
+                };
+                if fl.elements.len() != 2 {
+                    return Err(format!("field needs 2 elements, got {}", fl.elements.len()));
+                }
+                let field_name = match &fl.elements[0] {
+                    SExp::Symbol(s) => s.value.clone(),
+                    _ => return Err("field name must be a symbol".to_string()),
+                };
+                let field_type = match &fl.elements[1] {
+                    SExp::Symbol(s) => s.value.clone(),
+                    _ => return Err("field type must be a symbol".to_string()),
+                };
+                Ok(crate::adt::FieldDef {
+                    name: field_name,
+                    type_expr: field_type,
+                    pos: Position::new(0, 0, 0),
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?,
+        _ => return Err("fields must be a list".to_string()),
+    };
+
+    Ok(CtorDef {
+        name,
+        fields,
+        pos: Position::new(0, 0, 0),
+    })
+}
+
 fn strip_positions(sexp: &SExp) -> SExp {
     match sexp {
         SExp::Symbol(s) => SExp::Symbol(Symbol::new(s.value.clone(), dp())),

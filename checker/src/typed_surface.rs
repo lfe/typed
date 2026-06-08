@@ -166,6 +166,31 @@ pub fn extract_typed_fun(form: &SExp) -> Result<TypedFun, CheckError> {
                                     };
                                     args.push((arg_name, arg_type));
                                 }
+                                SExp::List(p) if p.elements.len() == 3 => {
+                                    let arg_name = match &p.elements[0] {
+                                        SExp::Symbol(s) => s.value.clone(),
+                                        other => {
+                                            return Err(CheckError::Diagnostic {
+                                                file: String::new(),
+                                                pos: other.position(),
+                                                message: "expected argument name".to_string(),
+                                            });
+                                        }
+                                    };
+                                    let arg_type = match (&p.elements[1], &p.elements[2]) {
+                                        (SExp::Symbol(mod_s), SExp::Keyword(type_k)) => {
+                                            format!("{}:{}", mod_s.value, type_k.name)
+                                        }
+                                        _ => {
+                                            return Err(CheckError::Diagnostic {
+                                                    file: String::new(),
+                                                    pos: p.pos,
+                                                    message: "expected (name type) or (name mod:type) in :args".to_string(),
+                                                });
+                                        }
+                                    };
+                                    args.push((arg_name, arg_type));
+                                }
                                 other => {
                                     return Err(CheckError::Diagnostic {
                                         file: String::new(),
@@ -196,7 +221,22 @@ pub fn extract_typed_fun(form: &SExp) -> Result<TypedFun, CheckError> {
                     });
                 }
                 returns = match &elems[i] {
-                    SExp::Symbol(s) => s.value.clone(),
+                    SExp::Symbol(s) => {
+                        if i + 1 < elems.len() {
+                            if let SExp::Keyword(k) = &elems[i + 1] {
+                                if k.name != "body" && k.name != "args" && k.name != "returns" {
+                                    i += 1;
+                                    format!("{}:{}", s.value, k.name)
+                                } else {
+                                    s.value.clone()
+                                }
+                            } else {
+                                s.value.clone()
+                            }
+                        } else {
+                            s.value.clone()
+                        }
+                    }
                     SExp::List(l) => format_sexp_flat(&SExp::List(l.clone())),
                     other => {
                         return Err(CheckError::Diagnostic {

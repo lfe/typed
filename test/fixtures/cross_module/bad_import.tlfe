@@ -1,0 +1,9 @@
+(defmodule bad_import
+  (export (broken 1)))
+
+(import-types (from orders (nonexistent)))
+
+(defun/typed broken
+  :args ((x nonexistent))
+  :returns integer
+  :body 42)

@@ -1,0 +1,7 @@
+(defmodule bad_unknown_type
+  (export (broken 1)))
+
+(defun/typed broken
+  :args ((x orders:nonexistent))
+  :returns integer
+  :body 42)
