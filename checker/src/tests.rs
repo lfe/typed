@@ -89,7 +89,7 @@ fn f5_lower_typed_fun() {
   :body (list "Hello " name))"#;
     let form = Parser::parse_str(input).unwrap();
     let tf = typed_surface::extract_typed_fun(&form).unwrap();
-    let lowered = lower::lower_typed_fun(&tf);
+    let lowered = lower::lower_typed_fun(&tf, &TypeEnv::new());
 
     assert_eq!(lowered.line, 1);
 
@@ -98,43 +98,34 @@ fn f5_lower_typed_fun() {
             assert_eq!(l.elements.len(), 4);
             match &l.elements[0] {
                 SExp::Symbol(s) => assert_eq!(s.value, "define-function"),
-                _ => panic!("expected define-function symbol"),
+                _ => panic!("expected define-function"),
             }
             match &l.elements[1] {
                 SExp::Symbol(s) => assert_eq!(s.value, "greet"),
                 _ => panic!("expected name"),
             }
+            // With typed args, the body is a match-lambda (guarded)
             match &l.elements[3] {
-                SExp::List(lambda) => {
-                    assert!(lambda.elements.len() >= 3);
-                    match &lambda.elements[0] {
-                        SExp::Symbol(s) => assert_eq!(s.value, "lambda"),
-                        _ => panic!("expected lambda"),
+                SExp::List(ml) => {
+                    match &ml.elements[0] {
+                        SExp::Symbol(s) => assert_eq!(s.value, "match-lambda"),
+                        _ => panic!("expected match-lambda"),
                     }
-                    match &lambda.elements[1] {
-                        SExp::List(args) => {
-                            assert_eq!(args.elements.len(), 1);
-                            match &args.elements[0] {
-                                SExp::Symbol(s) => assert_eq!(s.value, "name"),
-                                _ => panic!("expected arg name"),
-                            }
-                        }
-                        _ => panic!("expected args list"),
-                    }
+                    // Should have 2 clauses: happy (guarded) + fallback
+                    assert!(ml.elements.len() >= 3, "match-lambda needs >=2 clauses");
                 }
-                _ => panic!("expected lambda list"),
+                _ => panic!("expected match-lambda list"),
             }
         }
         _ => panic!("expected list"),
     }
 }
-
 #[test]
 fn f5_lower_preserves_original_line() {
     let input = ";; padding\n;; more padding\n;; yet more\n(defun/typed add\n  :args ((x integer) (y integer))\n  :returns integer\n  :body (+ x y))";
     let forms = Parser::parse_all_str(input).unwrap();
     let tf = typed_surface::extract_typed_fun(&forms[0]).unwrap();
-    let lowered = lower::lower_typed_fun(&tf);
+    let lowered = lower::lower_typed_fun(&tf, &TypeEnv::new());
     assert_eq!(lowered.line, 4, "original source line should be 4");
 }
 
@@ -146,7 +137,7 @@ fn f6_eetf_encodes() {
   :body (list "Hello " name))"#;
     let form = Parser::parse_str(input).unwrap();
     let tf = typed_surface::extract_typed_fun(&form).unwrap();
-    let lowered = lower::lower_typed_fun(&tf);
+    let lowered = lower::lower_typed_fun(&tf, &TypeEnv::new());
 
     let module_form = lower::lower_module_def("hello", &[("greet".to_string(), 1)]);
 

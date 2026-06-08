@@ -2,6 +2,7 @@ mod adt;
 mod diagnostic;
 mod eetf;
 mod error;
+mod guards;
 mod lower;
 mod match_lower;
 mod matching;
@@ -150,7 +151,7 @@ fn main() {
                     );
                     let mut tf_lowered = tf.clone();
                     tf_lowered.body = body;
-                    let lowered = lower::lower_typed_fun(&tf_lowered);
+                    let lowered = lower::lower_typed_fun(&tf_lowered, &env);
                     lowered_funs.push(lowered);
                 }
                 Err(e) => {
