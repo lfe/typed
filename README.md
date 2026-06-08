@@ -173,9 +173,10 @@ This project was planned before it was built. The reasoning is all in the open:
 - **M3 — Function contracts & bidirectional checking** ✅ *(body-vs-:returns, call-arg, field-value checking)*
 - **M3.5 — Cleanup** ✅ *(engine routing, branch typing, README demo, string/binary soundness)*
 - **M4 — The typed/untyped interop boundary** ✅ *(always-on guards, structured type-errors, deep validators, decode membrane)*
-- **M5 — Polish & dogfooding on real LFE** ✅ *(dogfood on orders.tlfe, gap inventory, map errors, usage docs)*
+- **M5 — Polish & dogfooding on real LFE** ✅ *(dogfood on orders.lfet, gap inventory, map errors, usage docs)*
 - **M6 — Typed records** ✅ *(defrecord/typed, make-/accessors/set-, type-aware synthesis, registry)*
 - **M7 — Cross-module type references** ✅ *(qualified mod:type, import-types, project scan, static diagnostics)*
+- **M8 — Extension standardization** ✅ *(.tlfe → .lfet; provider/scanner globs; mixed .lfet/.lfe separation)*
 
 Further out: per-expression source mapping (an upstream collaboration with LFE
 itself), and a typed-ADT ↔ Rust bridge for [Rustler](https://github.com/rusterlium/rustler)

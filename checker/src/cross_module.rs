@@ -49,9 +49,9 @@ pub fn scan_project(input_file: &str) -> ProjectRegistry {
     let scan_dir = input_abs.parent().unwrap_or(&input_abs);
 
     let mut registry = ProjectRegistry::new();
-    let tlfe_files = find_tlfe_files(scan_dir);
+    let lfet_files = find_lfet_files(scan_dir);
 
-    for file_path in &tlfe_files {
+    for file_path in &lfet_files {
         if let Ok(forms) = Parser::parse_all_file(file_path.to_str().unwrap_or("")) {
             let mut module_name = None;
             let mut types = Vec::new();
@@ -145,7 +145,7 @@ pub fn resolve_type_name(
                 file: file.to_string(),
                 pos,
                 message: format!(
-                    "unknown module `{}`; no `.tlfe` file declares module `{}`",
+                    "unknown module `{}`; no `.lfet` file declares module `{}`",
                     mod_name, mod_name
                 ),
             });
@@ -182,7 +182,7 @@ pub fn validate_imports(
                 file: file.to_string(),
                 pos,
                 message: format!(
-                    "unknown module `{}`; no `.tlfe` file declares module `{}`",
+                    "unknown module `{}`; no `.lfet` file declares module `{}`",
                     imp.module, imp.module
                 ),
             });
@@ -222,14 +222,14 @@ fn find_project_dir(input_path: &Path) -> PathBuf {
     }
 }
 
-fn find_tlfe_files(dir: &Path) -> Vec<PathBuf> {
+fn find_lfet_files(dir: &Path) -> Vec<PathBuf> {
     let mut files = Vec::new();
-    collect_tlfe_recursive(dir, &mut files);
+    collect_lfet_recursive(dir, &mut files);
     files.sort();
     files
 }
 
-fn collect_tlfe_recursive(dir: &Path, files: &mut Vec<PathBuf>) {
+fn collect_lfet_recursive(dir: &Path, files: &mut Vec<PathBuf>) {
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
@@ -239,8 +239,8 @@ fn collect_tlfe_recursive(dir: &Path, files: &mut Vec<PathBuf>) {
                 {
                     continue;
                 }
-                collect_tlfe_recursive(&path, files);
-            } else if path.extension().and_then(|e| e.to_str()) == Some("tlfe") {
+                collect_lfet_recursive(&path, files);
+            } else if path.extension().and_then(|e| e.to_str()) == Some("lfet") {
                 files.push(path);
             }
         }

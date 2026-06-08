@@ -102,14 +102,14 @@
 ;;; ============================================================
 
 (defun r2_make_order (config)
-  (compile-and-load config "records" "order.tlfe" 'order)
+  (compile-and-load config "records" "order.lfet" 'order)
   (let ((o (order:make-order 42 'pending 1000)))
     (case o
       (#(order 42 pending 1000) 'ok)
       (other (ct:fail `#(wrong_record ,other))))))
 
 (defun r2_make_order_bad_type (config)
-  (compile-and-load config "records" "order.tlfe" 'order)
+  (compile-and-load config "records" "order.lfet" 'order)
   (try
     (progn
       (order:make-order "not-an-int" 'pending 1000)
@@ -128,7 +128,7 @@
 ;;; ============================================================
 
 (defun r3_accessors (config)
-  (compile-and-load config "records" "order.tlfe" 'order)
+  (compile-and-load config "records" "order.lfet" 'order)
   (let ((o (order:make-order 42 'pending 1000)))
     (let ((id     (order:order-id o))
           (status (order:order-status o))
@@ -144,7 +144,7 @@
 ;;; ============================================================
 
 (defun r4_set_field (config)
-  (compile-and-load config "records" "order.tlfe" 'order)
+  (compile-and-load config "records" "order.lfet" 'order)
   (let* ((o  (order:make-order 42 'pending 1000))
          (o2 (order:set-order-total o 2000)))
     (case o2
@@ -152,7 +152,7 @@
       (other (ct:fail `#(wrong_updated ,other))))))
 
 (defun r4_set_field_bad_type (config)
-  (compile-and-load config "records" "order.tlfe" 'order)
+  (compile-and-load config "records" "order.lfet" 'order)
   (let ((o (order:make-order 42 'pending 1000)))
     (try
       (progn
@@ -168,7 +168,7 @@
              ('false (ct:fail `#(wrong_error ,err-map))))))))))
 
 (defun r4_set_immutable (config)
-  (compile-and-load config "records" "order.tlfe" 'order)
+  (compile-and-load config "records" "order.lfet" 'order)
   (let* ((o  (order:make-order 42 'pending 1000))
          (_o2 (order:set-order-total o 2000)))
     (case (order:order-total o)
@@ -180,7 +180,7 @@
 ;;; ============================================================
 
 (defun r5_typed_fun_over_record (config)
-  (compile-and-load config "records" "order_ops.tlfe" 'order_ops)
+  (compile-and-load config "records" "order_ops.lfet" 'order_ops)
   (let* ((o (order_ops:make-order 1 'pending 500))
          (total (order_ops:get-total o)))
     (case total
@@ -192,9 +192,9 @@
 ;;; ============================================================
 
 (defun r6_registry_attr (config)
-  (let* ((forms (check-and-decode config "records" "order.tlfe"))
+  (let* ((forms (check-and-decode config "records" "order.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "order.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "order.lfet" priv-dir)
       (`#(ok order ,beam-bin)
        (let ((`#(ok #(order ,chunks))
               (beam_lib:chunks beam-bin '(attributes))))
@@ -213,7 +213,7 @@
 ;;; ============================================================
 
 (defun r7_make_arity_mismatch (config)
-  (compile-and-load config "records" "order.tlfe" 'order)
+  (compile-and-load config "records" "order.lfet" 'order)
   (try
     (progn
       (order:make-order 42 'pending)
@@ -225,7 +225,7 @@
 (defun r7_static_bad_field_type (config)
   (let* ((checker-bin (proplists:get_value 'checker_bin config))
          (fixture-dir (proplists:get_value 'fixture_dir config))
-         (fixture (filename:join (list fixture-dir "records" "order_bad_make.tlfe")))
+         (fixture (filename:join (list fixture-dir "records" "order_bad_make.lfet")))
          (`#(,exit-code ,output) (run-checker-raw checker-bin fixture)))
     (case exit-code
       (0 (ct:fail '#(expected_nonzero_exit)))
@@ -237,7 +237,7 @@
 (defun r7_static_unknown_field (config)
   (let* ((checker-bin (proplists:get_value 'checker_bin config))
          (fixture-dir (proplists:get_value 'fixture_dir config))
-         (fixture (filename:join (list fixture-dir "records" "order_bad_field.tlfe")))
+         (fixture (filename:join (list fixture-dir "records" "order_bad_field.lfet")))
          (`#(,exit-code ,output) (run-checker-raw checker-bin fixture)))
     (case exit-code
       (0 (ct:fail '#(expected_nonzero_exit)))
@@ -251,7 +251,7 @@
 ;;; ============================================================
 
 (defun r8_dogfood_construct_access_update (config)
-  (compile-and-load config "records" "order.tlfe" 'order)
+  (compile-and-load config "records" "order.lfet" 'order)
   (let* ((o1 (order:make-order 1 'pending 500))
          (id (order:order-id o1))
          (o2 (order:set-order-status o1 'shipped))

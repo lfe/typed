@@ -63,9 +63,9 @@
 ;;; M2-3/M2-8: exhaustive match compiles and runs correctly
 
 (defun m2_3_exhaustive_match (config)
-  (let* ((forms (check-and-decode config "matching/exhaustive" "good_match.tlfe"))
+  (let* ((forms (check-and-decode config "matching/exhaustive" "good_match.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "good_match.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "good_match.lfet" priv-dir)
       (`#(ok good_match ,beam-bin)
        (code:purge 'good_match)
        (let ((`#(module good_match) (code:load_binary 'good_match "good_match.beam" beam-bin)))
@@ -88,7 +88,7 @@
   (let* ((checker-bin (proplists:get_value 'checker_bin config))
          (fixture-dir (proplists:get_value 'fixture_dir config))
          (priv-dir    (proplists:get_value 'priv_dir config))
-         (fixture     (filename:join (list fixture-dir "matching" "non_exhaustive" "missing_ctors.tlfe")))
+         (fixture     (filename:join (list fixture-dir "matching" "non_exhaustive" "missing_ctors.lfet")))
          (eetf-file   (filename:join priv-dir "missing_ctors.eetf"))
          (`#(,exit-code ,output) (run-checker checker-bin fixture eetf-file)))
     (case (/= exit-code 0)
@@ -105,9 +105,9 @@
 ;;; M2-5: field access via patterns
 
 (defun m2_5_field_access (config)
-  (let* ((forms (check-and-decode config "matching/field_access" "extract.tlfe"))
+  (let* ((forms (check-and-decode config "matching/field_access" "extract.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "extract.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "extract.lfet" priv-dir)
       (`#(ok extract ,beam-bin)
        (code:purge 'extract)
        (let ((`#(module extract) (code:load_binary 'extract "extract.beam" beam-bin)))
@@ -121,9 +121,9 @@
 ;;; M2-9: backend matrix — enum matching
 
 (defun m2_9_matrix_enum_match (config)
-  (let* ((forms (check-and-decode config "matching/matrix" "enum_match.tlfe"))
+  (let* ((forms (check-and-decode config "matching/matrix" "enum_match.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "enum_match.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "enum_match.lfet" priv-dir)
       (`#(ok enum_match ,beam-bin)
        (code:purge 'enum_match)
        (let ((`#(module enum_match) (code:load_binary 'enum_match "enum_match.beam" beam-bin)))
@@ -140,9 +140,9 @@
 ;;; M2-9: backend matrix — transparent matching
 
 (defun m2_9_matrix_transparent_match (config)
-  (let* ((forms (check-and-decode config "matching/matrix" "transparent_match.tlfe"))
+  (let* ((forms (check-and-decode config "matching/matrix" "transparent_match.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "transparent_match.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "transparent_match.lfet" priv-dir)
       (`#(ok transparent_match ,beam-bin)
        (code:purge 'transparent_match)
        (let ((`#(module transparent_match)
@@ -158,9 +158,9 @@
 ;;; M2-12: line injection regression through case/typed
 
 (defun m2_12_match_line_injection (config)
-  (let* ((forms (check-and-decode config "matching/exhaustive" "good_match.tlfe"))
+  (let* ((forms (check-and-decode config "matching/exhaustive" "good_match.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "good_match.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "good_match.lfet" priv-dir)
       (`#(ok good_match ,beam-bin)
        ;; Check that the function has the right source line in debug_info
        (let ((`#(ok #(good_match ,chunks))

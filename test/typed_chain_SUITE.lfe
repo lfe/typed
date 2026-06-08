@@ -68,7 +68,7 @@
   (let* ((checker-bin (proplists:get_value 'checker_bin config))
          (fixture-dir (proplists:get_value 'fixture_dir config))
          (priv-dir    (proplists:get_value 'priv_dir config))
-         (fixture     (filename:join (list fixture-dir "good" "hello.tlfe")))
+         (fixture     (filename:join (list fixture-dir "good" "hello.lfet")))
          (eetf-file   (filename:join priv-dir "hello.eetf"))
          (`#(0 ,_)    (run-checker checker-bin fixture eetf-file))
          (`#(ok ,bin)  (file:read_file eetf-file))
@@ -83,7 +83,7 @@
 ;;; F-7: Compile and call
 
 (defun f7_compile_and_call (config)
-  (let* ((forms    (check-and-decode config "good" "hello.tlfe"))
+  (let* ((forms    (check-and-decode config "good" "hello.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
     (case (typed_driver:compile_forms forms "hello.lfe" priv-dir)
       (`#(ok hello ,beam-bin)
@@ -97,7 +97,7 @@
 ;;; F-8 HEADLINE: Runtime line injection
 
 (defun f8_runtime_line_injection (config)
-  (let* ((forms    (check-and-decode config "crash" "boom.tlfe"))
+  (let* ((forms    (check-and-decode config "crash" "boom.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
     (case (typed_driver:compile_forms forms "boom.lfe" priv-dir)
       (`#(ok boom ,beam-bin)
@@ -118,7 +118,7 @@
 ;;; F-9: Compile error line injection (lfe_lint path)
 
 (defun f9_compile_error_line_injection (config)
-  (let* ((forms    (check-and-decode config "comperr" "unbound.tlfe"))
+  (let* ((forms    (check-and-decode config "comperr" "unbound.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
     (case (typed_driver:compile_forms forms "unbound.lfe" priv-dir)
       (`#(error #(lint (#(71 lfe_lint #(unbound_symbol totally_unbound_var)))))
@@ -129,7 +129,7 @@
 ;;; F-9b: Compile error file+line injection (compile:forms/erlc path)
 
 (defun f9b_compile_error_file_injection (_config)
-  (let* ((orig-file "injected_origin.tlfe")
+  (let* ((orig-file "injected_origin.lfet")
          (injected-line 9042)
          (forms (list
                  (tuple '(define-module f9bmod () ((export (ok_fn 0)))) 1)
@@ -168,7 +168,7 @@
   (let* ((checker-bin (proplists:get_value 'checker_bin config))
          (fixture-dir (proplists:get_value 'fixture_dir config))
          (priv-dir    (proplists:get_value 'priv_dir config))
-         (fixture     (filename:join (list fixture-dir "malformed" "bad.tlfe")))
+         (fixture     (filename:join (list fixture-dir "malformed" "bad.lfet")))
          (eetf-file   (filename:join priv-dir "bad.eetf"))
          (`#(,exit-code ,output) (run-checker checker-bin fixture eetf-file)))
     (case (/= exit-code 0)

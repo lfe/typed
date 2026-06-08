@@ -88,9 +88,9 @@
 ;;; M4-1/M4-2: correct call passes through guards
 
 (defun m4_1_correct_call_passes (config)
-  (let* ((forms (check-and-decode config "runtime" "guarded.tlfe"))
+  (let* ((forms (check-and-decode config "runtime" "guarded.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "guarded.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "guarded.lfet" priv-dir)
       (`#(ok guarded ,beam-bin)
        (code:purge 'guarded)
        (let ((`#(module guarded) (code:load_binary 'guarded "guarded.beam" beam-bin)))
@@ -104,9 +104,9 @@
 ;;; M4-3: wrong-typed arg raises structured type-error (not function_clause)
 
 (defun m4_3_wrong_arg_crashes (config)
-  (let* ((forms (check-and-decode config "runtime" "guarded.tlfe"))
+  (let* ((forms (check-and-decode config "runtime" "guarded.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "guarded.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "guarded.lfet" priv-dir)
       (`#(ok guarded ,beam-bin)
        (code:purge 'guarded)
        (let ((`#(module guarded) (code:load_binary 'guarded "guarded.beam" beam-bin)))
@@ -127,9 +127,9 @@
 ;;; M4-4: structured error term has all expected fields
 
 (defun m4_4_structured_error_fields (config)
-  (let* ((forms (check-and-decode config "runtime" "guarded.tlfe"))
+  (let* ((forms (check-and-decode config "runtime" "guarded.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "guarded.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "guarded.lfet" priv-dir)
       (`#(ok guarded ,beam-bin)
        (code:purge 'guarded)
        (let ((`#(module guarded) (code:load_binary 'guarded "guarded.beam" beam-bin)))
@@ -153,9 +153,9 @@
 ;;; D-1: with-fields validation — valid constructor with field
 
 (defun d1_with_fields_valid (config)
-  (let* ((forms (check-and-decode config "runtime" "membrane.tlfe"))
+  (let* ((forms (check-and-decode config "runtime" "membrane.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "membrane.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "membrane.lfet" priv-dir)
       (`#(ok membrane ,beam-bin)
        (code:purge 'membrane)
        (let ((`#(module membrane) (code:load_binary 'membrane "membrane.beam" beam-bin)))
@@ -169,9 +169,9 @@
 ;;; D-1: with-fields validation — bad field type rejected
 
 (defun d1_with_fields_bad_field (config)
-  (let* ((forms (check-and-decode config "runtime" "membrane.tlfe"))
+  (let* ((forms (check-and-decode config "runtime" "membrane.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "membrane.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "membrane.lfet" priv-dir)
       (`#(ok membrane ,beam-bin)
        (code:purge 'membrane)
        (let ((`#(module membrane) (code:load_binary 'membrane "membrane.beam" beam-bin)))
@@ -192,9 +192,9 @@
 ;;; D-2: path at depth — non-empty path to failing field
 
 (defun d2_path_at_depth (config)
-  (let* ((forms (check-and-decode config "runtime" "membrane.tlfe"))
+  (let* ((forms (check-and-decode config "runtime" "membrane.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "membrane.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "membrane.lfet" priv-dir)
       (`#(ok membrane ,beam-bin)
        (code:purge 'membrane)
        (let ((`#(module membrane) (code:load_binary 'membrane "membrane.beam" beam-bin)))
@@ -213,9 +213,9 @@
 ;;; D-3: structured web-input demo — realistic with-fields input
 
 (defun d3_web_input_demo (config)
-  (let* ((forms (check-and-decode config "runtime" "membrane.tlfe"))
+  (let* ((forms (check-and-decode config "runtime" "membrane.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "membrane.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "membrane.lfet" priv-dir)
       (`#(ok membrane ,beam-bin)
        (code:purge 'membrane)
        (let ((`#(module membrane) (code:load_binary 'membrane "membrane.beam" beam-bin)))
@@ -241,9 +241,9 @@
 ;;; D-7: enum validator
 
 (defun d7_enum_validator (config)
-  (let* ((forms (check-and-decode config "adt/enum" "colours.tlfe"))
+  (let* ((forms (check-and-decode config "adt/enum" "colours.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "colours.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "colours.lfet" priv-dir)
       (`#(ok colours ,beam-bin)
        (code:purge 'colours)
        (let ((`#(module colours) (code:load_binary 'colours "colours.beam" beam-bin)))
@@ -267,9 +267,9 @@
 ;;; D-7: transparent validator
 
 (defun d7_transparent_validator (config)
-  (let* ((forms (check-and-decode config "adt/transparent" "ids.tlfe"))
+  (let* ((forms (check-and-decode config "adt/transparent" "ids.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "ids.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "ids.lfet" priv-dir)
       (`#(ok ids ,beam-bin)
        (code:purge 'ids)
        (let ((`#(module ids) (code:load_binary 'ids "ids.beam" beam-bin)))
@@ -293,9 +293,9 @@
 ;;; D-3: decode — valid value → #(ok T)
 
 (defun d3_decode_valid (config)
-  (let* ((forms (check-and-decode config "runtime" "membrane.tlfe"))
+  (let* ((forms (check-and-decode config "runtime" "membrane.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "membrane.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "membrane.lfet" priv-dir)
       (`#(ok membrane ,beam-bin)
        (code:purge 'membrane)
        (let ((`#(module membrane) (code:load_binary 'membrane "membrane.beam" beam-bin)))
@@ -310,9 +310,9 @@
 ;;; D-3: decode — invalid value → #(error #(type_error ...))
 
 (defun d3_decode_invalid (config)
-  (let* ((forms (check-and-decode config "runtime" "membrane.tlfe"))
+  (let* ((forms (check-and-decode config "runtime" "membrane.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "membrane.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "membrane.lfet" priv-dir)
       (`#(ok membrane ,beam-bin)
        (code:purge 'membrane)
        (let ((`#(module membrane) (code:load_binary 'membrane "membrane.beam" beam-bin)))
@@ -331,9 +331,9 @@
 ;;; D-4: duality — same bad value crashes via head, returns error via decode
 
 (defun d4_duality (config)
-  (let* ((forms (check-and-decode config "runtime" "membrane.tlfe"))
+  (let* ((forms (check-and-decode config "runtime" "membrane.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "membrane.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "membrane.lfet" priv-dir)
       (`#(ok membrane ,beam-bin)
        (code:purge 'membrane)
        (let ((`#(module membrane) (code:load_binary 'membrane "membrane.beam" beam-bin)))
@@ -356,9 +356,9 @@
 ;;; M4-2: wrong-tagged tuple rejected by ADT head guard
 
 (defun m4_2_wrong_tag_rejected (config)
-  (let* ((forms (check-and-decode config "typecheck/readme" "describe_good.tlfe"))
+  (let* ((forms (check-and-decode config "typecheck/readme" "describe_good.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "describe_good.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "describe_good.lfet" priv-dir)
       (`#(ok describe_good ,beam-bin)
        (code:purge 'describe_good)
        (let ((`#(module describe_good)
@@ -398,9 +398,9 @@
 ;;; E-4: render works for BOTH faces (crash + return)
 
 (defun e4_render_both_faces (config)
-  (let* ((forms (check-and-decode config "runtime" "membrane.tlfe"))
+  (let* ((forms (check-and-decode config "runtime" "membrane.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "membrane.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "membrane.lfet" priv-dir)
       (`#(ok membrane ,beam-bin)
        (code:purge 'membrane)
        (let ((`#(module membrane) (code:load_binary 'membrane "membrane.beam" beam-bin)))

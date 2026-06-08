@@ -22,7 +22,7 @@ cd typed/checker && cargo build
 
 ## Writing a Typed Module
 
-Typed LFE files use the `.tlfe` extension. A typed module looks like this:
+Typed LFE files use the `.lfet` extension. A typed module looks like this:
 
 ```lisp
 (defmodule orders
@@ -122,8 +122,8 @@ full type checking of functions that use record accessors.
 
 ## Cross-Module Types
 
-Types declared in one `.tlfe` module can be referenced from another. The checker
-scans sibling `.tlfe` files in the same directory, building a combined type
+Types declared in one `.lfet` module can be referenced from another. The checker
+scans sibling `.lfet` files in the same directory, building a combined type
 registry before checking any module.
 
 ### Qualified `mod:type`
@@ -131,7 +131,7 @@ registry before checking any module.
 Use `module-name:type-name` in type positions:
 
 ```lisp
-;; orders_web.tlfe — consumes the `order` record from orders.tlfe
+;; orders_web.lfet — consumes the `order` record from orders.lfet
 (defmodule orders_web
   (export (get-order-total 1)))
 
@@ -165,14 +165,14 @@ Both forms produce the same result. The checker statically rejects:
 ## Running the Checker
 
 ```sh
-# Check a single file (auto-scans sibling .tlfe for cross-module types)
-typed/checker/target/debug/typed-check your-module.tlfe --output your-module.eetf
+# Check a single file (auto-scans sibling .lfet for cross-module types)
+typed/checker/target/debug/typed-check your-module.lfet --output your-module.eetf
 
 # Then compile through the driver
 erl -noshell -pa typed/ebin -pa lfe/ebin -eval '
   {ok, Bin} = file:read_file("your-module.eetf"),
   Forms = binary_to_term(Bin),
-  typed_driver:compile_forms(Forms, "your-module.tlfe", "."),
+  typed_driver:compile_forms(Forms, "your-module.lfet", "."),
   halt().
 '
 ```
@@ -183,7 +183,7 @@ erl -noshell -pa typed/ebin -pa lfe/ebin -eval '
 
 ```
 error[E001]: body returns `integer`, but contract declares `:returns binary`
-  --> greeting.tlfe:3:1
+  --> greeting.lfet:3:1
      |
    3 | (defun/typed oops
      | ^
@@ -193,7 +193,7 @@ error[E001]: body returns `integer`, but contract declares `:returns binary`
 
 ```
 error[E100]: non-exhaustive pattern match on type `order-status`
-  --> orders.tlfe:10:1
+  --> orders.lfet:10:1
       |
    10 | (case/typed s
       | ^

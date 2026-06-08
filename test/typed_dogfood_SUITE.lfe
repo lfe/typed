@@ -62,9 +62,9 @@
 ;;; P-1: status-label — all 5 constructors
 
 (defun p1_status_label (config)
-  (let* ((forms (check-and-decode config "dogfood" "orders.tlfe"))
+  (let* ((forms (check-and-decode config "dogfood" "orders.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "orders.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "orders.lfet" priv-dir)
       (`#(ok orders ,beam-bin)
        (code:purge 'orders)
        (let ((`#(module orders) (code:load_binary 'orders "orders.beam" beam-bin)))
@@ -80,9 +80,9 @@
 ;;; P-1: is-complete
 
 (defun p1_is_complete (config)
-  (let* ((forms (check-and-decode config "dogfood" "orders.tlfe"))
+  (let* ((forms (check-and-decode config "dogfood" "orders.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "orders.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "orders.lfet" priv-dir)
       (`#(ok orders ,beam-bin)
        (code:purge 'orders)
        (let ((`#(module orders) (code:load_binary 'orders "orders.beam" beam-bin)))
@@ -96,9 +96,9 @@
 ;;; P-1: line-total
 
 (defun p1_line_total (config)
-  (let* ((forms (check-and-decode config "dogfood" "orders.tlfe"))
+  (let* ((forms (check-and-decode config "dogfood" "orders.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "orders.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "orders.lfet" priv-dir)
       (`#(ok orders ,beam-bin)
        (code:purge 'orders)
        (let ((`#(module orders) (code:load_binary 'orders "orders.beam" beam-bin)))
@@ -110,9 +110,9 @@
 ;;; P-1: apply-discount
 
 (defun p1_apply_discount (config)
-  (let* ((forms (check-and-decode config "dogfood" "orders.tlfe"))
+  (let* ((forms (check-and-decode config "dogfood" "orders.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "orders.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "orders.lfet" priv-dir)
       (`#(ok orders ,beam-bin)
        (code:purge 'orders)
        (let ((`#(module orders) (code:load_binary 'orders "orders.beam" beam-bin)))
@@ -124,9 +124,9 @@
 ;;; P-1: decode valid
 
 (defun p1_decode_valid (config)
-  (let* ((forms (check-and-decode config "dogfood" "orders.tlfe"))
+  (let* ((forms (check-and-decode config "dogfood" "orders.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "orders.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "orders.lfet" priv-dir)
       (`#(ok orders ,beam-bin)
        (code:purge 'orders)
        (let ((`#(module orders) (code:load_binary 'orders "orders.beam" beam-bin)))
@@ -138,9 +138,9 @@
 ;;; P-1: decode invalid (wrong type entirely)
 
 (defun p1_decode_invalid (config)
-  (let* ((forms (check-and-decode config "dogfood" "orders.tlfe"))
+  (let* ((forms (check-and-decode config "dogfood" "orders.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "orders.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "orders.lfet" priv-dir)
       (`#(ok orders ,beam-bin)
        (code:purge 'orders)
        (let ((`#(module orders) (code:load_binary 'orders "orders.beam" beam-bin)))
@@ -155,9 +155,9 @@
 ;;; P-1: decode bad field (right tag, wrong field type)
 
 (defun p1_decode_bad_field (config)
-  (let* ((forms (check-and-decode config "dogfood" "orders.tlfe"))
+  (let* ((forms (check-and-decode config "dogfood" "orders.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "orders.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "orders.lfet" priv-dir)
       (`#(ok orders ,beam-bin)
        (code:purge 'orders)
        (let ((`#(module orders) (code:load_binary 'orders "orders.beam" beam-bin)))
@@ -172,9 +172,9 @@
 ;;; P-6: wrong type crashes with structured error (guard enforcement)
 
 (defun p6_wrong_type_crashes (config)
-  (let* ((forms (check-and-decode config "dogfood" "orders.tlfe"))
+  (let* ((forms (check-and-decode config "dogfood" "orders.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "orders.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "orders.lfet" priv-dir)
       (`#(ok orders ,beam-bin)
        (code:purge 'orders)
        (let ((`#(module orders) (code:load_binary 'orders "orders.beam" beam-bin)))
@@ -195,13 +195,13 @@
               (ct:fail '#(got_function_clause)))))))
       (`#(error ,reason) (ct:fail `#(compile_failed ,reason))))))
 
-;;; P-6a: STATIC wrong-return — checker rejects orders_bad_return.tlfe
+;;; P-6a: STATIC wrong-return — checker rejects orders_bad_return.lfet
 
 (defun p6_static_wrong_return (config)
   (let* ((checker-bin (proplists:get_value 'checker_bin config))
          (fixture-dir (proplists:get_value 'fixture_dir config))
          (priv-dir    (proplists:get_value 'priv_dir config))
-         (fixture     (filename:join (list fixture-dir "dogfood" "orders_bad_return.tlfe")))
+         (fixture     (filename:join (list fixture-dir "dogfood" "orders_bad_return.lfet")))
          (eetf-file   (filename:join priv-dir "orders_bad_return.eetf"))
          (`#(,exit-code ,output) (run-checker checker-bin fixture eetf-file)))
     (case (/= exit-code 0)
@@ -213,13 +213,13 @@
       ('false
        (ct:fail '#(checker_should_have_rejected))))))
 
-;;; P-6b: STATIC non-exhaustive — checker rejects orders_nonexhaustive.tlfe
+;;; P-6b: STATIC non-exhaustive — checker rejects orders_nonexhaustive.lfet
 
 (defun p6_static_nonexhaustive (config)
   (let* ((checker-bin (proplists:get_value 'checker_bin config))
          (fixture-dir (proplists:get_value 'fixture_dir config))
          (priv-dir    (proplists:get_value 'priv_dir config))
-         (fixture     (filename:join (list fixture-dir "dogfood" "orders_nonexhaustive.tlfe")))
+         (fixture     (filename:join (list fixture-dir "dogfood" "orders_nonexhaustive.lfet")))
          (eetf-file   (filename:join priv-dir "orders_nonexhaustive.eetf"))
          (`#(,exit-code ,output) (run-checker checker-bin fixture eetf-file)))
     (case (/= exit-code 0)
@@ -235,9 +235,9 @@
 ;;; P-6c: decode error rendered through typed_rt:render_type_error
 
 (defun p6_decode_error_rendered (config)
-  (let* ((forms (check-and-decode config "dogfood" "orders.tlfe"))
+  (let* ((forms (check-and-decode config "dogfood" "orders.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "orders.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "orders.lfet" priv-dir)
       (`#(ok orders ,beam-bin)
        (code:purge 'orders)
        (let ((`#(module orders) (code:load_binary 'orders "orders.beam" beam-bin)))

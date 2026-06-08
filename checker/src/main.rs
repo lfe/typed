@@ -20,7 +20,7 @@ use std::process;
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
-        eprintln!("usage: typed-check <file.lfe> [--output <file.eetf>] [--otp-version <N>]");
+        eprintln!("usage: typed-check <file.lfet> [--output <file.eetf>] [--otp-version <N>]");
         process::exit(2);
     }
 
@@ -112,7 +112,7 @@ fn main() {
         pending_forms.push(form);
     }
 
-    // Cross-module: scan project for sibling .tlfe types
+    // Cross-module: scan project for sibling .lfet types
     let project_registry = cross_module::scan_project(input_file);
 
     // Validate imports against the project registry
@@ -628,7 +628,7 @@ fn validate_type_ref(
                 file: file.to_string(),
                 pos,
                 message: format!(
-                    "unknown module `{}`; no `.tlfe` file declares module `{}`",
+                    "unknown module `{}`; no `.lfet` file declares module `{}`",
                     mod_name, mod_name
                 ),
             });

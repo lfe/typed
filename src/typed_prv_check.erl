@@ -60,21 +60,14 @@ check_app(AppInfo, CheckerBin, _State) ->
     SrcDirs = rebar_app_info:get(AppInfo, src_dirs, ["src"]),
     AppDir = rebar_app_info:dir(AppInfo),
     OutDir = rebar_app_info:ebin_dir(AppInfo),
-    LfeFiles = lists:flatmap(
+    TypedFiles = lists:flatmap(
         fun(SrcDir) ->
                 Dir = filename:join(AppDir, SrcDir),
-                filelib:wildcard(filename:join(Dir, "*.lfe"))
+                filelib:wildcard(filename:join(Dir, "*.lfet"))
         end, SrcDirs),
-    TypedFiles = lists:filter(fun has_typed_forms/1, LfeFiles),
     lists:foreach(
       fun(File) -> check_file(File, CheckerBin, OutDir) end,
       TypedFiles).
-
-has_typed_forms(File) ->
-    case file:read_file(File) of
-        {ok, Bin} -> binary:match(Bin, <<"defun/typed">>) =/= nomatch;
-        _ -> false
-    end.
 
 check_file(File, CheckerBin, OutDir) ->
     rebar_api:info("  checking ~s", [File]),

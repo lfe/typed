@@ -748,7 +748,7 @@ fn m2_6_diagnostic_engine_renders() {
 #[test]
 fn m2_11_snapshot_non_exhaustive_human() {
     let err = crate::error::CheckError::NonExhaustive {
-        file: "orders.tlfe".to_string(),
+        file: "orders.lfet".to_string(),
         pos: crate::error::Position::new(0, 10, 1),
         type_name: "status".to_string(),
         missing: vec!["Shipped".to_string(), "Cancelled".to_string()],
@@ -758,7 +758,7 @@ fn m2_11_snapshot_non_exhaustive_human() {
     let human = collector.render_human();
     let expected = concat!(
         "error[E100]: non-exhaustive pattern match on type `status`\n",
-        "  --> orders.tlfe:10:1\n",
+        "  --> orders.lfet:10:1\n",
         "      |\n",
         "   10 | (case/typed s\n",
         "      | ^\n",
@@ -778,7 +778,7 @@ fn m2_11_snapshot_non_exhaustive_human() {
 #[test]
 fn m2_11_snapshot_non_exhaustive_json() {
     let err = crate::error::CheckError::NonExhaustive {
-        file: "orders.tlfe".to_string(),
+        file: "orders.lfet".to_string(),
         pos: crate::error::Position::new(0, 10, 1),
         type_name: "status".to_string(),
         missing: vec!["Shipped".to_string(), "Cancelled".to_string()],
@@ -788,7 +788,7 @@ fn m2_11_snapshot_non_exhaustive_json() {
     let json = collector.render_json();
     assert!(json.contains("\"code\":\"E100\""));
     assert!(json.contains("\"severity\":\"error\""));
-    assert!(json.contains("\"file\":\"orders.tlfe\""));
+    assert!(json.contains("\"file\":\"orders.lfet\""));
     assert!(json.contains("\"line\":10"));
     assert!(json.contains("\"missing_ctors\":[\"Shipped\",\"Cancelled\"]"));
     assert!(json.contains("\"hint\":\"add clauses"));
@@ -1103,14 +1103,14 @@ fn m3_10_snapshot_return_mismatch() {
         "binary",
         &env,
         &tenv,
-        "greeting.tlfe",
+        "greeting.lfet",
         crate::error::Position::new(0, 3, 1),
     );
     assert_eq!(errors.len(), 1);
     let msg = format!("{}", errors[0]);
     assert_eq!(
         msg,
-        "greeting.tlfe:3:1: body returns `integer`, but contract declares `:returns binary`"
+        "greeting.lfet:3:1: body returns `integer`, but contract declares `:returns binary`"
     );
 }
 
@@ -1131,12 +1131,12 @@ fn m3_10_snapshot_arg_type_mismatch() {
 
     let input = r#"(add "hello" 2)"#;
     let form = Parser::parse_str(input).unwrap();
-    let (_, errs) = crate::typecheck::synth_expr(&form, &env, &tenv, "math.tlfe");
+    let (_, errs) = crate::typecheck::synth_expr(&form, &env, &tenv, "math.lfet");
     assert_eq!(errs.len(), 1);
     let msg = format!("{}", errs[0]);
     assert_eq!(
         msg,
-        "math.tlfe:1:6: argument `a` expected type `integer`, got `string`"
+        "math.lfet:1:6: argument `a` expected type `integer`, got `string`"
     );
 }
 
@@ -1157,10 +1157,10 @@ fn m3_10_snapshot_wrong_arity() {
 
     let input = "(add 1)";
     let form = Parser::parse_str(input).unwrap();
-    let (_, errs) = crate::typecheck::synth_expr(&form, &env, &tenv, "math.tlfe");
+    let (_, errs) = crate::typecheck::synth_expr(&form, &env, &tenv, "math.lfet");
     assert_eq!(errs.len(), 1);
     let msg = format!("{}", errs[0]);
-    assert_eq!(msg, "math.tlfe:1:1: function expects 2 argument(s), got 1");
+    assert_eq!(msg, "math.lfet:1:1: function expects 2 argument(s), got 1");
 }
 
 #[test]
@@ -1177,14 +1177,14 @@ fn m3_10_snapshot_field_value_mismatch() {
         &adt_def,
         &env,
         &tenv,
-        "container.tlfe",
+        "container.lfet",
         dp,
     );
     assert_eq!(errs.len(), 1);
     let msg = format!("{}", errs[0]);
     assert_eq!(
         msg,
-        "container.tlfe:10:3: field `val` of constructor `Box` expects type `integer`, got `string`"
+        "container.lfet:10:3: field `val` of constructor `Box` expects type `integer`, got `string`"
     );
 }
 
@@ -1206,17 +1206,17 @@ fn c2_branch_body_typing_rejects_wrong_type() {
     let tenv = TypeEnv::new();
 
     let errs =
-        crate::typecheck::check_case_typed_branches(&bodies, &expected, &env, &tenv, "test.tlfe");
+        crate::typecheck::check_case_typed_branches(&bodies, &expected, &env, &tenv, "test.lfet");
     assert_eq!(errs.len(), 2);
     let msg0 = format!("{}", errs[0]);
     assert_eq!(
         msg0,
-        "test.tlfe:5:3: case/typed branch returns `string`, but expected `atom`"
+        "test.lfet:5:3: case/typed branch returns `string`, but expected `atom`"
     );
     let msg1 = format!("{}", errs[1]);
     assert_eq!(
         msg1,
-        "test.tlfe:6:3: case/typed branch returns `integer`, but expected `atom`"
+        "test.lfet:6:3: case/typed branch returns `integer`, but expected `atom`"
     );
 }
 
@@ -1234,7 +1234,7 @@ fn c2_branch_body_typing_accepts_matching() {
     let tenv = TypeEnv::new();
 
     let errs =
-        crate::typecheck::check_case_typed_branches(&bodies, &expected, &env, &tenv, "test.tlfe");
+        crate::typecheck::check_case_typed_branches(&bodies, &expected, &env, &tenv, "test.lfet");
     assert!(errs.is_empty());
 }
 
@@ -1254,7 +1254,7 @@ fn c5_poly_identity_accepted() {
         "a",
         &env,
         &tenv,
-        "test.tlfe",
+        "test.lfet",
         crate::error::Position::new(0, 1, 1),
     );
     assert!(errs.is_empty());
@@ -1283,14 +1283,14 @@ fn c5_poly_same_var_different_types_rejected() {
         "a",
         &env,
         &tenv,
-        "poly.tlfe",
+        "poly.lfet",
         dp,
     );
     assert_eq!(errs.len(), 1);
     let msg = format!("{}", errs[0]);
     assert_eq!(
         msg,
-        "poly.tlfe:1:10: type variable `a` bound to `integer` by argument `x`, but got `string` here"
+        "poly.lfet:1:10: type variable `a` bound to `integer` by argument `x`, but got `string` here"
     );
 }
 
@@ -1301,7 +1301,7 @@ fn c5_poly_same_var_different_types_rejected() {
 #[test]
 fn c1_snapshot_return_mismatch_rendered_human() {
     let err = crate::error::CheckError::Diagnostic {
-        file: "greeting.tlfe".to_string(),
+        file: "greeting.lfet".to_string(),
         pos: crate::error::Position::new(0, 3, 1),
         message: "body returns `integer`, but contract declares `:returns binary`".to_string(),
     };
@@ -1311,7 +1311,7 @@ fn c1_snapshot_return_mismatch_rendered_human() {
     let human = collector.render_human();
     let expected = concat!(
         "error[E001]: body returns `integer`, but contract declares `:returns binary`\n",
-        "  --> greeting.tlfe:3:1\n",
+        "  --> greeting.lfet:3:1\n",
         "     |\n",
         "   3 | (defun/typed oops\n",
         "     | ^\n",
@@ -1323,7 +1323,7 @@ fn c1_snapshot_return_mismatch_rendered_human() {
 #[test]
 fn c1_snapshot_return_mismatch_rendered_json() {
     let err = crate::error::CheckError::Diagnostic {
-        file: "greeting.tlfe".to_string(),
+        file: "greeting.lfet".to_string(),
         pos: crate::error::Position::new(0, 3, 1),
         message: "body returns `integer`, but contract declares `:returns binary`".to_string(),
     };
@@ -1336,7 +1336,7 @@ fn c1_snapshot_return_mismatch_rendered_json() {
             "[{",
             "\"code\":\"E001\",",
             "\"severity\":\"error\",",
-            "\"file\":\"greeting.tlfe\",",
+            "\"file\":\"greeting.lfet\",",
             "\"line\":3,",
             "\"column\":1,",
             "\"message\":\"body returns `integer`, but contract declares `:returns binary`\",",
@@ -1768,14 +1768,14 @@ fn x5_validate_unknown_module() {
     let errs = crate::cross_module::validate_imports(
         &[imp],
         &registry,
-        "test.tlfe",
+        "test.lfet",
         crate::error::Position::new(0, 1, 1),
     );
     assert_eq!(errs.len(), 1);
     let msg = format!("{}", errs[0]);
     assert_eq!(
         msg,
-        "test.tlfe:1:1: unknown module `bogus`; no `.tlfe` file declares module `bogus`"
+        "test.lfet:1:1: unknown module `bogus`; no `.lfet` file declares module `bogus`"
     );
 }
 
@@ -1797,13 +1797,13 @@ fn x5_validate_unknown_type_in_known_module() {
     let errs = crate::cross_module::validate_imports(
         &[imp],
         &registry,
-        "test.tlfe",
+        "test.lfet",
         crate::error::Position::new(0, 1, 1),
     );
     assert_eq!(errs.len(), 1);
     let msg = format!("{}", errs[0]);
     assert_eq!(
         msg,
-        "test.tlfe:1:1: unknown type `nonexistent` in module `orders`"
+        "test.lfet:1:1: unknown type `nonexistent` in module `orders`"
     );
 }

@@ -80,9 +80,9 @@
 ;;; ============================================================
 
 (defun m1_5_tagged_tuple (config)
-  (let* ((forms (check-and-decode config "adt/tagged_tuple" "shapes.tlfe"))
+  (let* ((forms (check-and-decode config "adt/tagged_tuple" "shapes.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "shapes.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "shapes.lfet" priv-dir)
       (`#(ok shapes ,beam-bin)
        (code:purge 'shapes)
        (let ((`#(module shapes) (code:load_binary 'shapes "shapes.beam" beam-bin)))
@@ -95,9 +95,9 @@
        (ct:fail `#(compile_failed ,reason))))))
 
 (defun m1_5_tagged_tuple_multi_word (config)
-  (let* ((forms (check-and-decode config "adt/tagged_tuple" "roles.tlfe"))
+  (let* ((forms (check-and-decode config "adt/tagged_tuple" "roles.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "roles.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "roles.lfet" priv-dir)
       (`#(ok roles ,beam-bin)
        (code:purge 'roles)
        (let ((`#(module roles) (code:load_binary 'roles "roles.beam" beam-bin)))
@@ -118,9 +118,9 @@
 ;;; ============================================================
 
 (defun m1_6_enum (config)
-  (let* ((forms (check-and-decode config "adt/enum" "colours.tlfe"))
+  (let* ((forms (check-and-decode config "adt/enum" "colours.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "colours.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "colours.lfet" priv-dir)
       (`#(ok colours ,beam-bin)
        (code:purge 'colours)
        (let ((`#(module colours) (code:load_binary 'colours "colours.beam" beam-bin)))
@@ -136,9 +136,9 @@
 ;;; ============================================================
 
 (defun m1_7_transparent (config)
-  (let* ((forms (check-and-decode config "adt/transparent" "ids.tlfe"))
+  (let* ((forms (check-and-decode config "adt/transparent" "ids.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "ids.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "ids.lfet" priv-dir)
       (`#(ok ids ,beam-bin)
        (code:purge 'ids)
        (let ((`#(module ids) (code:load_binary 'ids "ids.beam" beam-bin)))
@@ -154,9 +154,9 @@
 ;;; ============================================================
 
 (defun m1_10_registry_attr (config)
-  (let* ((forms (check-and-decode config "adt/tagged_tuple" "shapes.tlfe"))
+  (let* ((forms (check-and-decode config "adt/tagged_tuple" "shapes.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "shapes.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "shapes.lfet" priv-dir)
       (`#(ok shapes ,beam-bin)
        (let ((`#(ok #(shapes ,chunks))
               (beam_lib:chunks beam-bin '(attributes))))
@@ -173,9 +173,9 @@
 ;;; ============================================================
 
 (defun m1_11_matrix_tagged_tuple (config)
-  (let* ((forms (check-and-decode config "adt/tagged_tuple" "shapes.tlfe"))
+  (let* ((forms (check-and-decode config "adt/tagged_tuple" "shapes.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "shapes.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "shapes.lfet" priv-dir)
       (`#(ok shapes ,beam-bin)
        (code:purge 'shapes)
        (code:load_binary 'shapes "shapes.beam" beam-bin)
@@ -188,9 +188,9 @@
        (ct:fail `#(compile_failed ,reason))))))
 
 (defun m1_11_matrix_enum (config)
-  (let* ((forms (check-and-decode config "adt/enum" "colours.tlfe"))
+  (let* ((forms (check-and-decode config "adt/enum" "colours.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "colours.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "colours.lfet" priv-dir)
       (`#(ok colours ,beam-bin)
        (code:purge 'colours)
        (code:load_binary 'colours "colours.beam" beam-bin)
@@ -203,9 +203,9 @@
        (ct:fail `#(compile_failed ,reason))))))
 
 (defun m1_11_matrix_transparent (config)
-  (let* ((forms (check-and-decode config "adt/transparent" "ids.tlfe"))
+  (let* ((forms (check-and-decode config "adt/transparent" "ids.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "ids.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "ids.lfet" priv-dir)
       (`#(ok ids ,beam-bin)
        (code:purge 'ids)
        (code:load_binary 'ids "ids.beam" beam-bin)
@@ -222,9 +222,9 @@
 ;;; ============================================================
 
 (defun m1_12_adt_crash_line_injection (config)
-  (let* ((forms (check-and-decode config "adt/crash" "adt_boom.tlfe"))
+  (let* ((forms (check-and-decode config "adt/crash" "adt_boom.lfet"))
          (priv-dir (proplists:get_value 'priv_dir config)))
-    (case (typed_driver:compile_forms forms "adt_boom.tlfe" priv-dir)
+    (case (typed_driver:compile_forms forms "adt_boom.lfet" priv-dir)
       (`#(ok adt_boom ,beam-bin)
        (code:purge 'adt_boom)
        (let ((`#(module adt_boom) (code:load_binary 'adt_boom "adt_boom.beam" beam-bin)))
@@ -235,7 +235,7 @@
                 (let ((file (proplists:get_value 'file info))
                       (line (proplists:get_value 'line info)))
                   (case (tuple file line)
-                    (#("adt_boom.tlfe" 20) 'ok)
+                    (#("adt_boom.lfet" 20) 'ok)
                     (other (ct:fail `#(wrong_file_line ,other)))))))))))
       (`#(error ,reason)
        (ct:fail `#(compile_failed ,reason))))))
@@ -244,7 +244,7 @@
   (let* ((checker-bin (proplists:get_value 'checker_bin config))
          (fixture-dir (proplists:get_value 'fixture_dir config))
          (priv-dir (proplists:get_value 'priv_dir config))
-         (fixture (filename:join (list fixture-dir "adt" "malformed" "bad_ctor.tlfe")))
+         (fixture (filename:join (list fixture-dir "adt" "malformed" "bad_ctor.lfet")))
          (eetf-file (filename:join priv-dir "bad_ctor.eetf"))
          (`#(,exit-code ,output) (run-checker checker-bin fixture eetf-file)))
     (case (/= exit-code 0)
