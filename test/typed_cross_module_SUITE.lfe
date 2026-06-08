@@ -27,6 +27,9 @@
    (end_per_suite 1)
    ;; X-2/X-3: Qualified cross-module type
    (x3_qualified_cross_module 1)
+   (x3a_boundary_rejects_non_tuple 1)
+   (x3a_boundary_rejects_wrong_tag 1)
+   (x3b_cross_module_accessor 1)
    ;; X-4: import-types
    (x4_import_types 1)
    ;; X-5: Static diagnostics
@@ -38,6 +41,9 @@
 
 (defun all ()
   '(x3_qualified_cross_module
+    x3a_boundary_rejects_non_tuple
+    x3a_boundary_rejects_wrong_tag
+    x3b_cross_module_accessor
     x4_import_types
     x5_unknown_module
     x5_unknown_type
@@ -91,6 +97,102 @@
                     (other (ct:fail `#(wrong_total ,other)))))))
              (`#(error ,reason)
               (ct:fail `#(web_compile_failed ,reason)))))))
+      (`#(error ,reason)
+       (ct:fail `#(orders_compile_failed ,reason))))))
+
+;;; ============================================================
+;;; X-3a: Boundary rejection — non-tuple
+;;; ============================================================
+
+(defun x3a_boundary_rejects_non_tuple (config)
+  (let* ((priv-dir (proplists:get_value 'priv_dir config))
+         (orders-forms (check-and-decode config "cross_module" "orders.tlfe")))
+    (case (typed_driver:compile_forms orders-forms "orders.tlfe" priv-dir)
+      (`#(ok orders ,orders-bin)
+       (code:purge 'orders)
+       (let ((`#(module orders) (code:load_binary 'orders "orders.beam" orders-bin)))
+         (let ((web-forms (check-and-decode config "cross_module" "orders_web.tlfe")))
+           (case (typed_driver:compile_forms web-forms "orders_web.tlfe" priv-dir)
+             (`#(ok orders_web ,web-bin)
+              (code:purge 'orders_web)
+              (let ((`#(module orders_web)
+                     (code:load_binary 'orders_web "orders_web.beam" web-bin)))
+                (try
+                  (progn
+                    (orders_web:get-order-total 42)
+                    (ct:fail 'should_have_crashed))
+                  (catch
+                    (`#(error #(type_error ,err-map) ,_)
+                     (let ((expected (maps:get 'expected err-map))
+                           (fn-name  (maps:get 'function err-map)))
+                       (case (tuple expected fn-name)
+                         (#(orders:order get-order-total) 'ok)
+                         (other (ct:fail `#(wrong_error ,other ,err-map))))))))))
+             (`#(error ,reason)
+              (ct:fail `#(web_compile_failed ,reason)))))))
+      (`#(error ,reason)
+       (ct:fail `#(orders_compile_failed ,reason))))))
+
+;;; ============================================================
+;;; X-3a: Boundary rejection — wrong-tagged tuple
+;;; ============================================================
+
+(defun x3a_boundary_rejects_wrong_tag (config)
+  (let* ((priv-dir (proplists:get_value 'priv_dir config))
+         (orders-forms (check-and-decode config "cross_module" "orders.tlfe")))
+    (case (typed_driver:compile_forms orders-forms "orders.tlfe" priv-dir)
+      (`#(ok orders ,orders-bin)
+       (code:purge 'orders)
+       (let ((`#(module orders) (code:load_binary 'orders "orders.beam" orders-bin)))
+         (let ((web-forms (check-and-decode config "cross_module" "orders_web.tlfe")))
+           (case (typed_driver:compile_forms web-forms "orders_web.tlfe" priv-dir)
+             (`#(ok orders_web ,web-bin)
+              (code:purge 'orders_web)
+              (let ((`#(module orders_web)
+                     (code:load_binary 'orders_web "orders_web.beam" web-bin)))
+                (try
+                  (progn
+                    (orders_web:get-order-total (tuple 'not_order 1 2 3))
+                    (ct:fail 'should_have_crashed))
+                  (catch
+                    (`#(error #(type_error ,err-map) ,_)
+                     (let ((expected (maps:get 'expected err-map))
+                           (got      (maps:get 'got err-map)))
+                       (case expected
+                         ('orders:order
+                          (case got
+                            (#(not_order 1 2 3) 'ok)
+                            (other (ct:fail `#(wrong_got ,other)))))
+                         (other (ct:fail `#(wrong_expected ,other ,err-map))))))))))
+             (`#(error ,reason)
+              (ct:fail `#(web_compile_failed ,reason)))))))
+      (`#(error ,reason)
+       (ct:fail `#(orders_compile_failed ,reason))))))
+
+;;; ============================================================
+;;; X-3b: Cross-module accessor call
+;;; ============================================================
+
+(defun x3b_cross_module_accessor (config)
+  (let* ((priv-dir (proplists:get_value 'priv_dir config))
+         (orders-forms (check-and-decode config "cross_module" "orders.tlfe")))
+    (case (typed_driver:compile_forms orders-forms "orders.tlfe" priv-dir)
+      (`#(ok orders ,orders-bin)
+       (code:purge 'orders)
+       (let ((`#(module orders) (code:load_binary 'orders "orders.beam" orders-bin)))
+         (let ((acc-forms (check-and-decode config "cross_module" "orders_web_accessor.tlfe")))
+           (case (typed_driver:compile_forms acc-forms "orders_web_accessor.tlfe" priv-dir)
+             (`#(ok orders_web_accessor ,acc-bin)
+              (code:purge 'orders_web_accessor)
+              (let ((`#(module orders_web_accessor)
+                     (code:load_binary 'orders_web_accessor "orders_web_accessor.beam" acc-bin)))
+                (let* ((o (orders:make-order 77 'shipped 3500))
+                       (total (orders_web_accessor:get-order-total o)))
+                  (case total
+                    (3500 'ok)
+                    (other (ct:fail `#(wrong_accessor_result ,other)))))))
+             (`#(error ,reason)
+              (ct:fail `#(accessor_compile_failed ,reason)))))))
       (`#(error ,reason)
        (ct:fail `#(orders_compile_failed ,reason))))))
 
