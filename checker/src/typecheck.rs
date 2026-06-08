@@ -71,8 +71,6 @@ pub fn types_compatible(got: &Type, expected: &Type) -> bool {
             | (Type::Number, Type::Float)
             | (Type::String, Type::List)
             | (Type::List, Type::String)
-            | (Type::Binary, Type::String)
-            | (Type::String, Type::Binary)
     )
 }
 

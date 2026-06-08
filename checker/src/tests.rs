@@ -1355,3 +1355,31 @@ fn c1_snapshot_return_mismatch_rendered_json() {
         )
     );
 }
+
+// ============================================================
+// M3.5 iteration 3: Binary ≠ String soundness test
+// ============================================================
+
+#[test]
+fn c4_binary_not_compatible_with_string() {
+    assert!(!crate::typecheck::types_compatible(
+        &crate::typecheck::Type::Binary,
+        &crate::typecheck::Type::String,
+    ));
+    assert!(!crate::typecheck::types_compatible(
+        &crate::typecheck::Type::String,
+        &crate::typecheck::Type::Binary,
+    ));
+}
+
+#[test]
+fn c4_string_still_compatible_with_list() {
+    assert!(crate::typecheck::types_compatible(
+        &crate::typecheck::Type::String,
+        &crate::typecheck::Type::List,
+    ));
+    assert!(crate::typecheck::types_compatible(
+        &crate::typecheck::Type::List,
+        &crate::typecheck::Type::String,
+    ));
+}
