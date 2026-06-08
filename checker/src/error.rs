@@ -40,7 +40,6 @@ pub enum LexError {
 }
 
 #[derive(Debug, thiserror::Error)]
-#[expect(dead_code, reason = "variants reserved for parser improvements")]
 pub enum ParseError {
     #[error("unexpected token {token:?} at {pos}")]
     UnexpectedToken { token: String, pos: Position },

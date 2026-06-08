@@ -10,6 +10,12 @@ pub enum TokenType {
     Number,
     Nil,
     Quote,
+    Backquote,
+    Comma,
+    CommaAt,
+    HashParen,
+    Binary,
+    Dot,
     Eof,
 }
 
@@ -87,6 +93,42 @@ impl Lexer {
             }
             ':' => self.read_keyword(),
             '"' => self.read_string(),
+            '#' => self.read_hash(),
+            '`' => {
+                self.advance();
+                Ok(Token {
+                    typ: TokenType::Backquote,
+                    lexeme: "`".to_string(),
+                    pos,
+                })
+            }
+            ',' => {
+                self.advance();
+                if self.current_char() == Some('@') {
+                    self.advance();
+                    Ok(Token {
+                        typ: TokenType::CommaAt,
+                        lexeme: ",@".to_string(),
+                        pos,
+                    })
+                } else {
+                    Ok(Token {
+                        typ: TokenType::Comma,
+                        lexeme: ",".to_string(),
+                        pos,
+                    })
+                }
+            }
+            '.' if self.peek().is_none()
+                || self.peek().is_some_and(|c| c.is_whitespace() || c == ')') =>
+            {
+                self.advance();
+                Ok(Token {
+                    typ: TokenType::Dot,
+                    lexeme: ".".to_string(),
+                    pos,
+                })
+            }
             _ if ch.is_ascii_digit()
                 || (ch == '-' && self.peek().is_some_and(|c| c.is_ascii_digit())) =>
             {
@@ -210,6 +252,93 @@ impl Lexer {
             TokenType::Symbol
         };
         Ok(Token { typ, lexeme, pos })
+    }
+
+    fn read_hash(&mut self) -> Result<Token, LexError> {
+        let pos = self.current_position();
+        self.advance(); // consume '#'
+        match self.current_char() {
+            Some('(') => {
+                self.advance(); // consume '('
+                Ok(Token {
+                    typ: TokenType::HashParen,
+                    lexeme: "#(".to_string(),
+                    pos,
+                })
+            }
+            Some('"') => self.read_binary_literal(pos),
+            Some('\\') => self.read_char_literal(pos),
+            Some(ch) => Err(LexError::UnexpectedChar { ch, pos }),
+            None => Err(LexError::UnexpectedEof),
+        }
+    }
+
+    fn read_binary_literal(&mut self, pos: Position) -> Result<Token, LexError> {
+        self.advance(); // consume '"'
+        let mut value = String::new();
+        loop {
+            match self.current_char() {
+                None => {
+                    return Err(LexError::UnterminatedString { pos });
+                }
+                Some('"') => {
+                    self.advance();
+                    break;
+                }
+                Some('\\') => {
+                    self.advance();
+                    match self.current_char() {
+                        None => return Err(LexError::UnterminatedString { pos }),
+                        Some('n') => {
+                            value.push('\n');
+                            self.advance();
+                        }
+                        Some('t') => {
+                            value.push('\t');
+                            self.advance();
+                        }
+                        Some('\\') => {
+                            value.push('\\');
+                            self.advance();
+                        }
+                        Some('"') => {
+                            value.push('"');
+                            self.advance();
+                        }
+                        Some(ch) => {
+                            return Err(LexError::InvalidEscape {
+                                ch,
+                                pos: self.current_position(),
+                            });
+                        }
+                    }
+                }
+                Some(ch) => {
+                    value.push(ch);
+                    self.advance();
+                }
+            }
+        }
+        Ok(Token {
+            typ: TokenType::Binary,
+            lexeme: value,
+            pos,
+        })
+    }
+
+    fn read_char_literal(&mut self, pos: Position) -> Result<Token, LexError> {
+        self.advance(); // consume '\'
+        match self.current_char() {
+            Some(ch) => {
+                self.advance();
+                Ok(Token {
+                    typ: TokenType::Number,
+                    lexeme: (ch as u32).to_string(),
+                    pos,
+                })
+            }
+            None => Err(LexError::UnexpectedEof),
+        }
     }
 
     fn skip_whitespace_and_comments(&mut self) {

@@ -1807,3 +1807,201 @@ fn x5_validate_unknown_type_in_known_module() {
         "test.lfet:1:1: unknown type `nonexistent` in module `orders`"
     );
 }
+
+// ============================================================
+// M9 tests — Reader Correctness
+// ============================================================
+
+#[test]
+fn d1_char_literal_slash() {
+    let input = r"#\/";
+    let form = Parser::parse_str(input).unwrap();
+    match &form {
+        SExp::Number(n) => assert_eq!(n.value, "47"),
+        other => panic!("expected Number, got: {:?}", other),
+    }
+}
+
+#[test]
+fn d1_char_literal_a() {
+    let input = r"#\a";
+    let form = Parser::parse_str(input).unwrap();
+    match &form {
+        SExp::Number(n) => assert_eq!(n.value, "97"),
+        other => panic!("expected Number, got: {:?}", other),
+    }
+}
+
+#[test]
+fn d2_tuple_literal() {
+    let input = "#(unix linux)";
+    let form = Parser::parse_str(input).unwrap();
+    match &form {
+        SExp::List(l) => {
+            assert_eq!(l.elements.len(), 3);
+            assert!(matches!(&l.elements[0], SExp::Symbol(s) if s.value == "tuple"));
+            assert!(matches!(&l.elements[1], SExp::Symbol(s) if s.value == "unix"));
+            assert!(matches!(&l.elements[2], SExp::Symbol(s) if s.value == "linux"));
+        }
+        other => panic!("expected List, got: {:?}", other),
+    }
+}
+
+#[test]
+fn d2_tuple_empty() {
+    let input = "#()";
+    let form = Parser::parse_str(input).unwrap();
+    match &form {
+        SExp::List(l) => {
+            assert_eq!(l.elements.len(), 1);
+            assert!(matches!(&l.elements[0], SExp::Symbol(s) if s.value == "tuple"));
+        }
+        other => panic!("expected List, got: {:?}", other),
+    }
+}
+
+#[test]
+fn d3_binary_literal() {
+    let input = r#"#"hello""#;
+    let form = Parser::parse_str(input).unwrap();
+    match &form {
+        SExp::List(l) => {
+            assert_eq!(l.elements.len(), 2);
+            assert!(matches!(&l.elements[0], SExp::Symbol(s) if s.value == "binary"));
+            assert!(matches!(&l.elements[1], SExp::String(s) if s.value == "hello"));
+        }
+        other => panic!("expected binary list form, got: {:?}", other),
+    }
+}
+
+#[test]
+fn d4_backquote() {
+    let input = "`(a b c)";
+    let form = Parser::parse_str(input).unwrap();
+    match &form {
+        SExp::List(l) => {
+            assert_eq!(l.elements.len(), 2);
+            assert!(matches!(&l.elements[0], SExp::Symbol(s) if s.value == "backquote"));
+        }
+        other => panic!("expected backquote form, got: {:?}", other),
+    }
+}
+
+#[test]
+fn d4_comma() {
+    let input = ",x";
+    let form = Parser::parse_str(input).unwrap();
+    match &form {
+        SExp::List(l) => {
+            assert_eq!(l.elements.len(), 2);
+            assert!(matches!(&l.elements[0], SExp::Symbol(s) if s.value == "comma"));
+            assert!(matches!(&l.elements[1], SExp::Symbol(s) if s.value == "x"));
+        }
+        other => panic!("expected comma form, got: {:?}", other),
+    }
+}
+
+#[test]
+fn d4_comma_at() {
+    let input = ",@xs";
+    let form = Parser::parse_str(input).unwrap();
+    match &form {
+        SExp::List(l) => {
+            assert_eq!(l.elements.len(), 2);
+            assert!(matches!(&l.elements[0], SExp::Symbol(s) if s.value == "comma-at"));
+            assert!(matches!(&l.elements[1], SExp::Symbol(s) if s.value == "xs"));
+        }
+        other => panic!("expected comma-at form, got: {:?}", other),
+    }
+}
+
+#[test]
+fn d5_char_types_as_integer() {
+    let env = crate::typecheck::BodyEnv::new();
+    let tenv = TypeEnv::new();
+    let input = r"#\/";
+    let form = Parser::parse_str(input).unwrap();
+    let (ty, errs) = crate::typecheck::synth_expr(&form, &env, &tenv, "test.lfet");
+    assert!(errs.is_empty());
+    assert_eq!(ty, crate::typecheck::Type::Integer);
+}
+
+#[test]
+fn d5_binary_types_as_binary() {
+    let env = crate::typecheck::BodyEnv::new();
+    let tenv = TypeEnv::new();
+    let input = r#"#"hello""#;
+    let form = Parser::parse_str(input).unwrap();
+    let (ty, errs) = crate::typecheck::synth_expr(&form, &env, &tenv, "test.lfet");
+    assert!(errs.is_empty());
+    assert_eq!(ty, crate::typecheck::Type::Binary);
+}
+
+#[test]
+fn d5_tuple_types_as_dynamic() {
+    let env = crate::typecheck::BodyEnv::new();
+    let tenv = TypeEnv::new();
+    let input = "#(a b c)";
+    let form = Parser::parse_str(input).unwrap();
+    let (ty, errs) = crate::typecheck::synth_expr(&form, &env, &tenv, "test.lfet");
+    assert!(errs.is_empty());
+    assert_eq!(ty, crate::typecheck::Type::Dynamic);
+}
+
+#[test]
+fn d5_backquote_types_as_dynamic() {
+    let env = crate::typecheck::BodyEnv::new();
+    let tenv = TypeEnv::new();
+    let input = "`(a b c)";
+    let form = Parser::parse_str(input).unwrap();
+    let (ty, errs) = crate::typecheck::synth_expr(&form, &env, &tenv, "test.lfet");
+    assert!(errs.is_empty());
+    assert_eq!(ty, crate::typecheck::Type::Dynamic);
+}
+
+#[test]
+fn d6_bad_hash_form() {
+    let input = "#z";
+    let err = Parser::parse_str(input).unwrap_err();
+    let msg = format!("{}", err);
+    assert_eq!(msg, "unexpected character 'z' at 1:1");
+}
+
+#[test]
+fn d6_unterminated_binary() {
+    let input = r#"#"hello"#;
+    let err = Parser::parse_str(input).unwrap_err();
+    let msg = format!("{}", err);
+    assert_eq!(msg, "unterminated string at 1:1");
+}
+
+#[test]
+fn d6_dangling_comma() {
+    let input = ",";
+    let err = Parser::parse_str(input).unwrap_err();
+    assert!(
+        format!("{}", err).contains("empty input") || format!("{}", err).contains("unexpected")
+    );
+}
+
+#[test]
+fn d7_dirs_files_parse() {
+    let dirs_files = [
+        "../test/fixtures/dirs/dirs.lfe",
+        "../test/fixtures/dirs/dirs-common.lfe",
+        "../test/fixtures/dirs/dirs-lin.lfe",
+        "../test/fixtures/dirs/dirs-mac.lfe",
+        "../test/fixtures/dirs/dirs-win.lfe",
+    ];
+    for path in &dirs_files {
+        let result = Parser::parse_all_file(path);
+        assert!(
+            result.is_ok(),
+            "Failed to parse {}: {:?}",
+            path,
+            result.err()
+        );
+        let forms = result.unwrap();
+        assert!(!forms.is_empty(), "{} produced no forms", path);
+    }
+}

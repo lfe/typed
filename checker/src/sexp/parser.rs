@@ -70,6 +70,15 @@ impl Parser {
             TokenType::Number => self.parse_number(),
             TokenType::Nil => self.parse_nil(),
             TokenType::Quote => self.parse_quote(),
+            TokenType::Backquote => self.parse_wrapper("backquote"),
+            TokenType::Comma => self.parse_wrapper("comma"),
+            TokenType::CommaAt => self.parse_wrapper("comma-at"),
+            TokenType::HashParen => self.parse_tuple(),
+            TokenType::Binary => self.parse_binary(),
+            TokenType::Dot => Err(ParseError::UnexpectedToken {
+                token: ".".to_string(),
+                pos: token.pos,
+            }),
             TokenType::RParen => Err(ParseError::UnexpectedCloseParen { pos: token.pos }),
             TokenType::Eof => Err(ParseError::EmptyInput),
         }
@@ -86,6 +95,21 @@ impl Parser {
             }
             if self.check(&TokenType::RParen) {
                 self.advance();
+                break;
+            }
+            if self.check(&TokenType::Dot) {
+                self.advance(); // consume dot
+                let tail = self.parse_sexp()?;
+                if !self.check(&TokenType::RParen) {
+                    return Err(ParseError::Expected {
+                        expected: ")".to_string(),
+                        found: format!("{:?}", self.current_token()?.typ),
+                        pos: self.current_token()?.pos,
+                    });
+                }
+                self.advance(); // consume )
+                elements.push(SExp::Symbol(Symbol::new(".", pos)));
+                elements.push(tail);
                 break;
             }
             elements.push(self.parse_sexp()?);
@@ -131,6 +155,47 @@ impl Parser {
         Ok(SExp::List(List::new(
             vec![SExp::Symbol(Symbol::new("quote", pos)), inner],
             pos,
+        )))
+    }
+
+    fn parse_wrapper(&mut self, name: &str) -> Result<SExp> {
+        let token = self.current_token()?.clone();
+        let pos = token.pos;
+        self.advance();
+        let inner = self.parse_sexp()?;
+        Ok(SExp::List(List::new(
+            vec![SExp::Symbol(Symbol::new(name, pos)), inner],
+            pos,
+        )))
+    }
+
+    fn parse_tuple(&mut self) -> Result<SExp> {
+        let token = self.current_token()?.clone();
+        let pos = token.pos;
+        self.advance(); // consume HashParen token
+        let mut elements = vec![SExp::Symbol(Symbol::new("tuple", pos))];
+        loop {
+            if self.is_at_end() {
+                return Err(ParseError::UnterminatedList { pos });
+            }
+            if self.check(&TokenType::RParen) {
+                self.advance();
+                break;
+            }
+            elements.push(self.parse_sexp()?);
+        }
+        Ok(SExp::List(List::new(elements, pos)))
+    }
+
+    fn parse_binary(&mut self) -> Result<SExp> {
+        let token = self.current_token()?.clone();
+        self.advance();
+        Ok(SExp::List(List::new(
+            vec![
+                SExp::Symbol(Symbol::new("binary", token.pos)),
+                SExp::String(StringLit::new(token.lexeme, token.pos)),
+            ],
+            token.pos,
         )))
     }
 

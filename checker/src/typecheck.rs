@@ -168,7 +168,12 @@ pub fn synth_expr(
                 SExp::Symbol(s) if s.value == "let" || s.value == "let*" => {
                     synth_let(l, env, type_env, file, &mut errors)
                 }
-                SExp::Symbol(s) if matches!(s.value.as_str(), "case" | "case/typed" | "tuple") => {
+                SExp::Symbol(s)
+                    if matches!(
+                        s.value.as_str(),
+                        "case" | "case/typed" | "tuple" | "backquote" | "comma" | "comma-at"
+                    ) =>
+                {
                     Type::Dynamic
                 }
                 SExp::Symbol(s) if s.value == "list" => Type::List,
