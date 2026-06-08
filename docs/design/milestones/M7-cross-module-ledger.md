@@ -74,6 +74,25 @@ accessor/match clauses are untested. **M7 iteration 2** (small): add cross-modul
 rejection tests (non-tuple AND wrong-tag, per M4-2) and a cross-module accessor/`case-typed`
 test. See [M7-cleanup-cc-prompt.md](M7-cleanup-cc-prompt.md).
 
+### CDC Re-Verification (Iteration 2) — against `8aedcac`
+
+**ACCEPTED — M7 CLOSED.** X-3 is now genuinely proven:
+
+- **Boundary rejection — non-tuple:** `x3a_boundary_rejects_non_tuple` calls
+  `orders_web:get-order-total 42` across the boundary; asserts the structured type-error with
+  `expected=orders:order, function=get-order-total`. Exact.
+- **Boundary rejection — WRONG TAG (the M4-2 check):** `x3a_boundary_rejects_wrong_tag` passes
+  `#(not_order 1 2 3)` — a valid tuple with the wrong tag — and asserts rejection with
+  `expected=orders:order, got=#(not_order 1 2 3)`. A shape-only `is_tuple` guard would have
+  ACCEPTED this; rejection confirms the guard checks the **tag** across the module boundary.
+  This is the decisive test.
+- **Cross-module accessor:** `x3b_cross_module_accessor` (new fixture `orders_web_accessor`)
+  calls the generated accessor across modules — `make-order 77 'shipped 3500` →
+  `get-order-total` → 3500. Exact. "Behaves like a local type" now exercised, not just asserted.
+
+82 Rust / 74 CT / `make check` clean. **M7 CLOSED (CDC-accepted) at `8aedcac`.** All 9 rows:
+8 done, X-7 honestly deferred (provider project-wide UX → folds into the extension milestone).
+
 ## Closure
 
 _(Filled in by CC at close: per-row walk, totals, test summary, SHA.)_
