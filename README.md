@@ -5,7 +5,7 @@
 [![Erlang Versions][erlang-badge]][version]
 [![Tags][github-tags-badge]][github-tags]
 
-*An experiment in a statically typed LFE with algebraic data types*
+*An experiment in gradually typed LFE with algebraic data types — checked at compile time, enforced at runtime*
 
 [![Typed LFE project logo][logo]][logo-large]
 
@@ -19,11 +19,16 @@
 
 ## What is it?
 
-`lfe/typed` adds **static types and algebraic data types (ADTs)** to
-[LFE](https://lfe.io) (Lisp Flavoured Erlang) — as a **library plus a build step**,
-not a fork. You keep writing LFE. You opt into typed forms where you want them. The
-output is ordinary BEAM bytecode that any LFE, Erlang, or Elixir code can call. There
-is no "different LFE" to adopt.
+`lfe/typed` brings a **gradual type system — with algebraic data types (ADTs)** — to
+[LFE](https://lfe.io) (Lisp Flavoured Erlang), **checking your code at compile time and
+enforcing it at runtime**. It's a **library plus a build step**, not a fork: you keep
+writing LFE, you opt into typed forms where you want them, and the output is ordinary
+BEAM bytecode that any LFE, Erlang, or Elixir code can call. There is no "different LFE"
+to adopt.
+
+*Gradual* because typing is opt-in: typed forms are statically checked and
+runtime-enforced, while ordinary (untyped) LFE flows freely alongside them through an
+explicit `dynamic` boundary.
 
 Two things we care about above all else:
 
