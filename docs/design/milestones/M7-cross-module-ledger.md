@@ -25,7 +25,54 @@
 
 ## CDC Verification
 
-_(Filled in by CDC against the closing SHA.)_
+**Verifier:** Claude (CDC), 2026-06-08, against `dec9ae1`. **Method:** static inspection of
+`cross_module.rs` (scan + resolve), `main.rs` (qualified registration + guard env),
+`guards.rs` (`guard_for_type` else branch), the X-* tests, and the dogfood fixtures.
+
+**ACCEPTED 7/9, X-7 honestly deferred, X-3 REOPENED.**
+
+- **X-1 ✅** deserializer round-trips record + parametric + enum, exact field-by-field
+  (`x1_roundtrip_*`).
+- **X-2 ✅ (with a documented limitation).** `scan_project` builds the combined registry; a
+  type in module A resolves when checking B. **Limitation (honestly noted in the ledger):** the
+  scan is **flat — the input file's directory only, not the project tree** (not recursive).
+  Fine for a standard `src/`-flat rebar3 LFE project; sub-dir sources are missed. Acceptable
+  v0; fold a recursive/project-root option into M8 (the scanner is a `.tlfe`→`.lfe` target
+  anyway). Not blocking.
+- **X-4 ✅** `import-types` desugars bare→qualified; CT runs identically to qualified.
+- **X-5 ✅ — the hardened row held.** All 3 diagnostics (unknown module / unknown type /
+  bad import) are STATIC: non-zero exit + exact message (Rust snapshots + CT). The "static
+  rejection in the criterion" hardening worked here.
+- **X-6 ✅ — real M6→M7 integration.** `orders.tlfe` declares the ADT **and** the `order`
+  record; `orders_web` consumes `orders:order` across the boundary; dogfood asserts exact
+  cross-module results (total==2500, id==99). Record genuinely shared across modules.
+- **X-8 ✅ / X-9 ✅** docs updated; 82 Rust / 71 CT / `make check` clean.
+- **X-7 ⚠️ deferred — accepted.** Provider project-wide UX deferred; rationale sound (the
+  checker auto-scans siblings per invocation, so cross-module resolves even via the per-file
+  provider). Carries into M8's provider-routing work.
+
+- **X-3 ❌ PARTIAL — reopened.** Criterion: qualified `mod:type` resolves AND "behaves like a
+  local type (matching/guards/validators/**accessors**) work across the boundary" AND "**a
+  wrong value is rejected at the boundary**." Only the **happy path** is tested
+  (`x3_qualified_cross_module`: exit 0, compile, run, total==1000). Two clauses untested:
+  1. **Boundary enforcement (wrong value rejected).** The guard machinery *is* wired
+     (qualified type registered with full repr at `main.rs:138-140`; `guard_for_type` else
+     branch resolves it → `guard_for_adt`), so it **likely works** — but there is NO test that
+     a non-`order` (and, per the **M4-2 lesson**, a *wrong-tagged* tuple) is actually rejected
+     at the cross-module boundary. Given guards have been subtly shape-only before, this must
+     be proven, not assumed.
+  2. **Cross-module accessor / matching.** The dogfood body uses raw `(element 4 o)`, sidestep-
+     ping the generated accessor; no test exercises `orders:order-total` or a `case/typed` on a
+     cross-module ADT. "Behaves like a local type" is asserted more than tested.
+  Same recurring two-clause pattern. Note: the hardening fired for X-5 (a labeled *diagnostic*
+  row) but missed X-3's *embedded enforcement* clause — a useful signal that the rule needs to
+  cover runtime-rejection clauses, not just diagnostic rows.
+
+**Disposition:** M7 substance is strong and the headline (cross-module types, both syntaxes,
+record sharing, static resolution diagnostics) genuinely works. But X-3's enforcement +
+accessor/match clauses are untested. **M7 iteration 2** (small): add cross-module boundary-
+rejection tests (non-tuple AND wrong-tag, per M4-2) and a cross-module accessor/`case-typed`
+test. See [M7-cleanup-cc-prompt.md](M7-cleanup-cc-prompt.md).
 
 ## Closure
 
