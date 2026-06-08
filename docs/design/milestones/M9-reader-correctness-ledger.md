@@ -23,7 +23,42 @@
 
 ## CDC Verification
 
-_(Filled in by CDC against the closing SHA.)_
+**Verifier:** Claude (CDC), 2026-06-08, against `695081c`. **Method:** inspected the new Rust
+tests, the desugar arms, and `d7_dirs_files_parse`; checked CT count delta (74 → 74 = zero new
+end-to-end tests).
+
+**ACCEPTED 5/8 — D-2/D-3/D-4 reopened (parse+desugar proven, COMPILE+RUN not).**
+
+- **D-1 ✅** char `#\c` → codepoint `Number`; synths `Integer`. (A char is just a number, so the
+  already-tested number compile path covers it — acceptable without a new run test.)
+- **D-5 ✅** conservative typing exact (char→Integer, binary→Binary, tuple→dynamic,
+  backquote→dynamic).
+- **D-6 ✅** malformed forms give exact reader errors, no panic.
+- **D-7 ✅ — the headline.** `d7_dirs_files_parse` parses all 5 real `dirs` files, 0 errors.
+  Bonus: CC had to add cons-dot `.` + `when`-guard parsing to get there (reader-level only).
+  M11 is genuinely de-risked at the parse layer.
+- **D-8 ✅** 98 Rust / 74 CT / `make check` clean.
+
+- **D-2 / D-3 / D-4 ❌ PARTIAL — reopened.** All three criteria require COMPILE + RUN
+  ("both run" / "used at runtime" / "compiles + runs to the expected term"), but every M9 test
+  is Rust-side parse/desugar/synth — **CT count is unchanged (74), so nothing compiles these
+  forms through `lfe_codegen`.** The desugars are verified as *structure* (`#(a b c)`→
+  `(tuple a b c)`, `#"hello"`→`(binary "hello")`, `` ` ``→`(backquote …)`), but NOT that they
+  produce correct BEAM. Per the **M4.6 lesson** (a structurally-correct surface desugar —
+  `(maps:get …)` — failed through `lfe_codegen` because the codegen path differs from the
+  reader path), a looks-right desugar is exactly what must be run-tested. Specifically untested:
+  1. **tuple in EXPRESSION and PATTERN position** — `(tuple …)` compiling + a `case/typed`
+     clause matching `#(unix linux)` actually matching at runtime (pattern position was the
+     explicit D-2 emphasis);
+  2. **binary literal** producing a real `<<"…">>` at runtime (does `(binary "hello")` lower to
+     the bytes you expect?);
+  3. **quasiquote** with `,` unquote / `,@` splicing compiling + running to the expected term.
+
+**Disposition:** M9's reader layer is strong and `dirs` parses (the M11 enabler is real). But
+the "lowers to correct BEAM" half of D-2/D-3/D-4 is unverified — and desugar correctness through
+`lfe_codegen` is precisely where this project has been bitten. **M9 iteration 2** (small): add
+end-to-end CT that compiles + runs each form (tuple expr+pattern, binary value, quasiquote with
+unquote+splice). See [M9-cleanup-cc-prompt.md](M9-cleanup-cc-prompt.md).
 
 ## Closure
 
