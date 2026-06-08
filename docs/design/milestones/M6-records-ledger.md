@@ -25,7 +25,58 @@
 
 ## CDC Verification
 
-_(Filled in by CDC against the closing SHA.)_
+**Verifier:** Claude (CDC), 2026-06-07, against `eee686b`. **Method:** static inspection of
+`records.rs`, `main.rs` (sig collection + static-check wiring), `typecheck.rs` `synth_call`,
+`type_env.rs`, and the R-* tests; traced the static path for a wrong-typed `make-` call.
+
+**ACCEPTED 8/9 — R-7 reopened (static half not implemented). The rest are genuinely done.**
+
+- **R-1 ✅** `extract_defrecord` desugars to a 1-ctor `AdtDef`; exact Rust tests on
+  ctor/fields/types + parse-error cases.
+- **R-2 ✅ (runtime)** `make-<rec>` generated with field guards; `r2_make_order_bad_type`
+  catches the exact structured runtime error (`expected=order, function=make-order`).
+- **R-3 ✅ — verified exactly.** `r3_accessor_synthesizes_field_type` asserts
+  `synth_expr("(order-id o)") == Integer` and `(order-status o) == Atom`;
+  `lookup_record_accessor` is wired into `synth_call`. The accessor is genuinely type-aware
+  (the row I flagged — it holds).
+- **R-4 ✅** `set-<rec>-<field>` returns a new record (immutable; `r4_set_immutable`), wrong
+  type → exact runtime error.
+- **R-5 ✅** a `defun/typed` over a record checks + runs (`r5_typed_fun_over_record`).
+- **R-6 ✅** record serializes into `typed-registry` (`r6_record_in_registry` + CT on the BEAM
+  attr) — the M7 handoff is verified.
+- **R-8 ✅** dogfood construct→access→update end-to-end, exact; `docs/usage.md` updated.
+- **R-9 ✅** 71 Rust / 63 CT / `make check` clean.
+
+- **R-7 ❌ PARTIAL — reopened.** Criterion requires wrong-field-type-at-construction
+  **static + runtime**, plus unknown-field accessor, plus arity. **Root cause (not just a
+  missing test — a missing implementation):** `main.rs` registers `FunSig`s only from
+  `defun/typed` forms; the **generated record functions' signatures are never registered**.
+  So in `synth_call`, `(make-order "not-an-int" ...)` misses `lookup_fun` → misses builtin →
+  misses `lookup_record_accessor` → falls through to **`Dynamic`**: its args are never
+  statically checked, and `make-` synthesizes to `Dynamic` rather than the record type.
+  Consequences:
+  1. wrong field type at construction → **caught only at runtime** (r2), never statically;
+  2. **unknown-field accessor** `(order-bogus o)` → `Dynamic`, **no diagnostic** (criterion
+     names this case; untested + unimplemented);
+  3. `make-` result is `Dynamic`, so a misused record value elsewhere isn't caught either.
+  Delivered evidence for R-7 is runtime + parse-errors + a runtime `undef` for arity — the
+  **static** teaching diagnostic (Goal 2, the headline) is absent for the most common record
+  operation. Same recurring pattern (criterion says static+runtime, only runtime shipped),
+  but this instance is structural.
+
+**Fix (clean + bounded):** register the generated `make-<rec>` / `<rec>-<field>` /
+`set-<rec>-<field>` as `FunSig`s in `all_fun_sigs`/`body_env` (make-: args=field types,
+returns=record type; accessor: arg=record, returns=field type; set-: args=(record, field
+type), returns=record). Then `synth_call`/`check_call_args` validates construction args
+statically for free, `make-` synthesizes to the record type, and an unknown-field accessor on
+a known record is a real diagnostic. Add: a static CT (run checker on a wrong-typed `make-`,
+assert non-zero exit + **exact** diagnostic), an unknown-field-accessor test (exact), and a
+Rust test that `make-order` synthesizes to the record type.
+
+**Disposition:** M6 substance is strong — records work, accessors are type-aware, runtime
+enforcement is sound, registry handoff verified. But R-7 is overclaimed: the static
+construction diagnostic doesn't exist. **M6 iteration 2** to land it. See
+[M6-cleanup-cc-prompt.md](M6-cleanup-cc-prompt.md).
 
 ## Closure
 
