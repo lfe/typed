@@ -43,6 +43,7 @@ fn main() {
         .and_then(|i| args.get(i + 1))
         .is_some_and(|v| v == "json")
         || args.iter().any(|a| a == "--json");
+    let expand_only = args.iter().any(|a| a == "--expand-only");
 
     let source_name = Path::new(input_file)
         .file_name()
@@ -56,6 +57,33 @@ fn main() {
             process::exit(1);
         }
     };
+
+    if expand_only {
+        let expanded: Vec<(sexp::types::SExp, usize)> = forms
+            .iter()
+            .enumerate()
+            .map(|(i, form)| (expander::expand_form(form), i + 1))
+            .collect();
+        let eetf_bytes = eetf::encode_forms(&expanded);
+        match output_file {
+            Some(path) => {
+                if let Err(e) = eetf::write_eetf_file(path, &eetf_bytes) {
+                    eprintln!("failed to write {}: {}", path, e);
+                    process::exit(1);
+                }
+            }
+            None => {
+                use std::io::Write;
+                let stdout = std::io::stdout();
+                let mut handle = stdout.lock();
+                if let Err(e) = handle.write_all(&eetf_bytes) {
+                    eprintln!("failed to write stdout: {}", e);
+                    process::exit(1);
+                }
+            }
+        }
+        process::exit(0);
+    }
 
     let mut module_name = String::new();
     let mut module_exports = Vec::new();

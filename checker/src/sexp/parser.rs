@@ -171,6 +171,9 @@ impl Parser {
 
     fn parse_tuple(&mut self) -> Result<SExp> {
         let token = self.current_token()?.clone();
+        if token.lexeme == "#m(" {
+            return self.parse_map();
+        }
         let pos = token.pos;
         self.advance(); // consume HashParen token
         let mut elements = Vec::new();
@@ -185,6 +188,24 @@ impl Parser {
             elements.push(self.parse_sexp()?);
         }
         Ok(SExp::Tuple(Tuple::new(elements, pos)))
+    }
+
+    fn parse_map(&mut self) -> Result<SExp> {
+        let token = self.current_token()?.clone();
+        let pos = token.pos;
+        self.advance(); // consume #m( token
+        let mut elements = vec![SExp::Symbol(Symbol::new("map", pos))];
+        loop {
+            if self.is_at_end() {
+                return Err(ParseError::UnterminatedList { pos });
+            }
+            if self.check(&TokenType::RParen) {
+                self.advance();
+                break;
+            }
+            elements.push(self.parse_sexp()?);
+        }
+        Ok(SExp::List(List::new(elements, pos)))
     }
 
     fn parse_binary(&mut self) -> Result<SExp> {

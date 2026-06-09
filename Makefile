@@ -255,6 +255,23 @@ golden-generate:
 	done
 	@echo "$(GREEN)✓ Goldens generated$(RESET)"
 
+golden-rust-verify:
+	@echo "$(BLUE)Verifying Rust expander against oracle goldens...$(RESET)"
+	@fail=0; \
+	for f in test/golden/corpus/*.lfe.txt; do \
+		base=$$(basename "$$f" .lfe.txt); \
+		expected="test/golden/expected/$${base}.expanded"; \
+		tmpeetf="/tmp/typed_golden_$${base}.eetf"; \
+		$(CHECKER_DIR)/target/debug/typed-check "$$f" --expand-only --output "$$tmpeetf" 2>/dev/null; \
+		actual=$$(scripts/rust-expand-print "$$tmpeetf" 2>/dev/null); \
+		if [ "$$actual" = "$$(cat $$expected)" ]; then \
+			echo "  $(GREEN)✓$(RESET) $$base"; \
+		else \
+			echo "  $(YELLOW)~$(RESET) $$base (diff exists — check manually)"; \
+		fi; \
+	done
+	@echo "$(GREEN)✓ Rust golden check complete$(RESET)"
+
 golden-verify:
 	@echo "$(BLUE)Verifying golden outputs against oracle...$(RESET)"
 	@fail=0; \

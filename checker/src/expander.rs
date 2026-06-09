@@ -108,6 +108,40 @@ fn exp_backquote(exp: &SExp, n: usize) -> SExp {
                 ),
             )
         }
+        SExp::List(l)
+            if !l.elements.is_empty()
+                && matches!(&l.elements[0], SExp::Symbol(s) if s.value == "map") =>
+        {
+            let kvs = &l.elements[1..];
+            let expanded_kvs: Vec<SExp> = kvs.iter().map(|e| exp_backquote(e, n)).collect();
+            let mut map_elems = vec![sym("map")];
+            map_elems.extend(expanded_kvs);
+            SExp::List(List::new(map_elems, dp()))
+        }
+        SExp::List(l) if has_dot_tail(l) => {
+            let dot_pos = l
+                .elements
+                .iter()
+                .position(|e| matches!(e, SExp::Symbol(s) if s.value == "."))
+                .unwrap();
+            let head_part = &l.elements[..dot_pos];
+            let tail_part = &l.elements[dot_pos + 1..];
+            if head_part.len() == 1 && tail_part.len() == 1 {
+                let expanded_head = exp_backquote(&head_part[0], n);
+                let expanded_tail = exp_backquote(&tail_part[0], n);
+                exp_bq_cons(expanded_head, expanded_tail)
+            } else {
+                let mut result = if tail_part.len() == 1 {
+                    exp_backquote(&tail_part[0], n)
+                } else {
+                    exp_backquote(&SExp::List(List::new(tail_part.to_vec(), dp())), n)
+                };
+                for elem in head_part.iter().rev() {
+                    result = exp_bq_cons(exp_backquote(elem, n), result);
+                }
+                result
+            }
+        }
         SExp::List(l) if l.elements.len() >= 2 => {
             let head = &l.elements[0];
             let tail_elems = &l.elements[1..];
@@ -167,6 +201,12 @@ fn exp_backquote(exp: &SExp, n: usize) -> SExp {
         SExp::Nil(_) => exp.clone(),
         SExp::Number(_) | SExp::String(_) => exp.clone(),
     }
+}
+
+fn has_dot_tail(l: &List) -> bool {
+    l.elements
+        .iter()
+        .any(|e| matches!(e, SExp::Symbol(s) if s.value == "."))
 }
 
 fn exp_bq_cons(l: SExp, r: SExp) -> SExp {

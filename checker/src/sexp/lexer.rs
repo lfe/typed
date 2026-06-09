@@ -266,6 +266,15 @@ impl Lexer {
                     pos,
                 })
             }
+            Some('m') | Some('M') if self.peek() == Some('(') => {
+                self.advance(); // consume 'm'/'M'
+                self.advance(); // consume '('
+                Ok(Token {
+                    typ: TokenType::HashParen,
+                    lexeme: "#m(".to_string(),
+                    pos,
+                })
+            }
             Some('"') => self.read_binary_literal(pos),
             Some('\\') => self.read_char_literal(pos),
             Some(ch) => Err(LexError::UnexpectedChar { ch, pos }),

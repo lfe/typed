@@ -1,0 +1,29 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%% Read EETF from typed-check --expand-only, prettyprint1 each form.
+%%% Usage: scripts/rust-expand-print <eetf-file>
+
+main([EetfFile]) ->
+    setup_paths(),
+    case file:read_file(EetfFile) of
+        {ok, Bin} ->
+            FormLinePairs = binary_to_term(Bin),
+            lists:foreach(
+              fun({Form, _Line}) ->
+                      Str = lfe_io:prettyprint1(Form),
+                      io:put_chars(Str),
+                      io:nl()
+              end, FormLinePairs);
+        {error, Reason} ->
+            io:format(standard_error, "Error reading ~s: ~p~n", [EetfFile, Reason]),
+            halt(1)
+    end;
+main(_) ->
+    io:format(standard_error, "Usage: rust-expand-print <eetf-file>~n", []),
+    halt(2).
+
+setup_paths() ->
+    ScriptDir = filename:dirname(escript:script_name()),
+    ProjectRoot = filename:dirname(ScriptDir),
+    LfeEbin = filename:join([ProjectRoot, "_build", "default", "lib", "lfe", "ebin"]),
+    code:add_pathz(LfeEbin).
