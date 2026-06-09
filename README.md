@@ -162,25 +162,27 @@ owns everything up to "vanilla LFE forms"; the Erlang side turns those into BEAM
 ### The pipeline
 
 ```
- .lfet source
-     │
-     ▼  ┌──────────────────────────── typed-check (Rust) ────────────────────────────┐
-     │  │ 1. read     S-expression reader (line+column), adapted from oxur           │
-     │  │ 2. expand   Tier-1 macro expander (backquote, predef, def*, defrecord) —    │
-     │  │             a faithful port of lfe_macro, oracle-validated                  │
-     │  │ 3. check    bidirectional type checker over ADTs/records/contracts;         │
-     │  │             rejects bad programs with teaching diagnostics (human + JSON)   │
-     │  │ 4. lower    typed forms → vanilla LFE; insert always-on guards + validators;│
-     │  │             emit a `typed-registry` module attribute; stamp original lines  │
-     │  │ 5. encode   serialize the lowered forms to EETF (Erlang External Term Fmt)  │
-     │  └────────────────────────────────────┬───────────────────────────────────────┘
-     │                                        │  .eetf
-     ▼  ┌──────────────────── typed_driver (Erlang) ─────────┐
-        │ lfe_lint:module → lfe_codegen:module([{Form,Line}]) │
-        │ → compile:forms (original-source lines preserved)   │
-        └──────────────────────────┬──────────────────────────┘
-                                    ▼
-                              BEAM bytecode
+.lfet
+source
+   │
+   ▼  ┌──────────────────────────── typed-check (Rust) ─────────────────────────────┐
+   │  │ 1. read     S-expression reader (line+column), adapted from oxur            │
+   │  │ 2. expand   Tier-1 macro expander (backquote, predef, def*, defrecord) —    │
+   │  │             a faithful port of lfe_macro, oracle-validated                  │
+   │  │ 3. check    bidirectional type checker over ADTs/records/contracts;         │
+   │  │             rejects bad programs with teaching diagnostics (human + JSON)   │
+   │  │ 4. lower    typed forms → vanilla LFE; insert always-on guards + validators;│
+   │  │             emit a `typed-registry` module attribute; stamp original lines  │
+   │  │ 5. encode   serialize the lowered forms to EETF (Erlang External Term Fmt)  │
+   │  └─────────────────────────────────────┬───────────────────────────────────────┘
+   │                                 .eetf  │
+   ▼                                        ▼
+             ┌──────────────── typed_driver (Erlang) ──────────────┐
+             │ lfe_lint:module → lfe_codegen:module([{Form,Line}]) │
+             │ → compile:forms (original-source lines preserved)   │
+             └──────────────────────────┬──────────────────────────┘
+                                        ▼
+                                 BEAM bytecode
 ```
 
 `rebar3` integration is a provider (`typed_prv_check`) that globs `*.lfet`, runs the
@@ -250,8 +252,7 @@ The big-picture decisions, each with the road not taken. Full reasoning lives in
 - **EETF handoff.** Rust → Erlang via the Erlang External Term Format — the lowered
   forms are real Erlang terms `lfe_codegen` already understands.
 - **Distinct file extension `.lfet`.** Typed source is genuinely a non-LFE format (the
-  typed forms aren't stock-LFE-compilable), so it gets its own extension — honest, and
-  it keeps the stock LFE compiler from choking on typed files. *Future:* `.lfe` only once
+  typed forms aren't stock-LFE-compilable), so it gets its own extension — keeps the stock LFE compiler from choking on typed files. *Future:* `.lfe` only once
   the LFE compiler itself can dispatch to `typed-check`.
 - **One naming convention: `<lfe-form>/typed`.** `defun/typed`, `case/typed`,
   `deftype/typed`, … — typed variants are visibly marked and never shadow their LFE
