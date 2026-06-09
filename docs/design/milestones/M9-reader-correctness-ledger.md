@@ -87,6 +87,20 @@ over ALL forms emitted to `lfe_codegen` (plain + typed), not just `tf.body`; tes
 3-arm case (plain `defun`/`case` with `` `#(unix ,unsup) ``) compiled + run, asserting `unsup`
 binds. See [M9-cleanup-cc-prompt.md](M9-cleanup-cc-prompt.md) (updated).
 
+### CDC Re-Verification (Iteration 3 `9814317`) — ACCEPTED, M9 CLOSED
+
+`d4_qq_tuple_pattern_binds` runs `classify` over `#(unix linux)`/`#(unix freebsd)`/`#(win32 nt)`
+→ `#(linux freebsd other)` (compile+run, the quasiquoted arm binds the unquoted var). CC's dual
+fix: `SExp::Tuple` for all-literal tuples; `(tuple 'atom var)` list form when unquotes are
+present. 98 Rust / 81 CT / `make check` clean. D-2/D-3/D-4 now have genuine compile+run coverage.
+
+**M9 CLOSED (CDC-accepted) at `9814317`.** **One noted follow-up (NOT blocking, → M11):** quasi-
+quote expansion still runs only on `tf.body` (`main.rs:280`); a FULLY plain top-level `defun`
+(untyped) with quasiquote would not be expanded. The fixture uses `defun/typed` + plain `case`,
+which is the path that matters now. If untyped functions are to be first-class in `.lfet` files
+(the "gradual" in gradual typing; relevant to the M12 dirs port), broadening expansion to all
+emitted forms belongs in M11 (surface features).
+
 ## Closure
 
 _(Filled in by CC at close: per-row walk, totals, test summary, SHA.)_
