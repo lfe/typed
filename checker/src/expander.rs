@@ -150,6 +150,8 @@ fn expand_core_form(form: &SExp) -> SExp {
         "fletrec" if l.elements.len() >= 3 => expand_fletrec(l),
         // P-4: macrolet — expand bodies with local macros (Tier-1: just expand the body)
         "macrolet" if l.elements.len() >= 3 => expand_macrolet(l),
+        // P-5: defrecord → define-record + macro family
+        "defrecord" if l.elements.len() >= 3 => expand_defrecord_lfe(l),
         // P-4: deftype → define-type
         "deftype" if l.elements.len() >= 2 => expand_deftype(l),
         // P-4: defspec → define-function-spec
@@ -896,6 +898,257 @@ fn expand_macrolet(l: &List) -> SExp {
 // ============================================================
 // P-4: deftype → define-type
 // ============================================================
+
+// ============================================================
+// P-5: defrecord → define-record + full accessor-macro family
+// ============================================================
+
+fn expand_defrecord_lfe(l: &List) -> SExp {
+    let rec_name = match &l.elements[1] {
+        SExp::Symbol(s) => s.value.clone(),
+        _ => return form_with_expanded_tail(l),
+    };
+    let fields = &l.elements[2..];
+
+    let mut field_names = Vec::new();
+    let mut field_defs = Vec::new();
+    for f in fields {
+        match f {
+            SExp::Symbol(s) => {
+                field_names.push(s.value.clone());
+                field_defs.push(f.clone());
+            }
+            SExp::List(fl) if !fl.elements.is_empty() => {
+                if let SExp::Symbol(s) = &fl.elements[0] {
+                    field_names.push(s.value.clone());
+                }
+                field_defs.push(f.clone());
+            }
+            _ => field_defs.push(f.clone()),
+        }
+    }
+
+    let num_fields = field_names.len();
+    let mut progn_elems = vec![sym("progn")];
+
+    // (define-record name (fields...))
+    let mut dr_elems = vec![sym("define-record"), sym(&rec_name)];
+    dr_elems.push(SExp::List(List::new(field_defs, dp())));
+    progn_elems.push(SExp::List(List::new(dr_elems, dp())));
+
+    // make-<rec> macro
+    progn_elems.push(make_macro_clause(
+        &format!("make-{}", rec_name),
+        vec![sym("fds"), sym("$ENV")],
+        SExp::List(List::new(
+            vec![
+                sym("backquote"),
+                SExp::List(List::new(
+                    vec![
+                        sym("record"),
+                        sym(&rec_name),
+                        SExp::List(List::new(vec![sym("comma-at"), sym("fds")], dp())),
+                    ],
+                    dp(),
+                )),
+            ],
+            dp(),
+        )),
+    ));
+
+    // match-<rec> macro (same as make-)
+    progn_elems.push(make_macro_clause(
+        &format!("match-{}", rec_name),
+        vec![sym("fds"), sym("$ENV")],
+        SExp::List(List::new(
+            vec![
+                sym("backquote"),
+                SExp::List(List::new(
+                    vec![
+                        sym("record"),
+                        sym(&rec_name),
+                        SExp::List(List::new(vec![sym("comma-at"), sym("fds")], dp())),
+                    ],
+                    dp(),
+                )),
+            ],
+            dp(),
+        )),
+    ));
+
+    // is-<rec> macro
+    progn_elems.push(make_macro_clause(
+        &format!("is-{}", rec_name),
+        vec![
+            SExp::List(List::new(vec![sym("list"), sym("rec")], dp())),
+            sym("$ENV"),
+        ],
+        SExp::List(List::new(
+            vec![
+                sym("backquote"),
+                SExp::List(List::new(
+                    vec![
+                        sym("is-record"),
+                        SExp::List(List::new(vec![sym("comma"), sym("rec")], dp())),
+                        sym(&rec_name),
+                    ],
+                    dp(),
+                )),
+            ],
+            dp(),
+        )),
+    ));
+
+    // update-<rec> and set-<rec> macros
+    for prefix in &["update", "set"] {
+        progn_elems.push(make_macro_clause(
+            &format!("{}-{}", prefix, rec_name),
+            vec![
+                SExp::List(List::new(vec![sym("cons"), sym("rec"), sym("fds")], dp())),
+                sym("$ENV"),
+            ],
+            SExp::List(List::new(
+                vec![
+                    sym("backquote"),
+                    SExp::List(List::new(
+                        vec![
+                            sym("record-update"),
+                            SExp::List(List::new(vec![sym("comma"), sym("rec")], dp())),
+                            sym(&rec_name),
+                            SExp::List(List::new(vec![sym("comma-at"), sym("fds")], dp())),
+                        ],
+                        dp(),
+                    )),
+                ],
+                dp(),
+            )),
+        ));
+    }
+
+    // fields-<rec> macro
+    let mut field_list = vec![sym("quote")];
+    let field_syms: Vec<SExp> = field_names.iter().map(|n| sym(n)).collect();
+    field_list.push(SExp::List(List::new(field_syms, dp())));
+    progn_elems.push(make_macro_clause(
+        &format!("fields-{}", rec_name),
+        vec![SExp::List(List::new(vec![sym("list")], dp())), sym("$ENV")],
+        SExp::List(List::new(field_list, dp())),
+    ));
+
+    // size-<rec> macro
+    progn_elems.push(make_macro_clause(
+        &format!("size-{}", rec_name),
+        vec![SExp::List(List::new(vec![sym("list")], dp())), sym("$ENV")],
+        SExp::Number(Number::new((num_fields + 1).to_string(), dp())),
+    ));
+
+    // Per-field accessor macros: <rec>-<field>, update-<rec>-<field>, set-<rec>-<field>
+    for fname in &field_names {
+        // <rec>-<field> (getter — 0 args = index, 1 arg = field value)
+        let getter_name = format!("{}-{}", rec_name, fname);
+        let clause0 = SExp::List(List::new(
+            vec![
+                SExp::List(List::new(
+                    vec![SExp::List(List::new(vec![], dp())), sym("$ENV")],
+                    dp(),
+                )),
+                SExp::List(List::new(
+                    vec![
+                        sym("quote"),
+                        SExp::List(List::new(
+                            vec![sym("record-index"), sym(&rec_name), sym(fname)],
+                            dp(),
+                        )),
+                    ],
+                    dp(),
+                )),
+            ],
+            dp(),
+        ));
+        let clause1 = SExp::List(List::new(
+            vec![
+                SExp::List(List::new(
+                    vec![
+                        SExp::List(List::new(vec![sym("list"), sym("rec")], dp())),
+                        sym("$ENV"),
+                    ],
+                    dp(),
+                )),
+                SExp::List(List::new(
+                    vec![
+                        sym("backquote"),
+                        SExp::List(List::new(
+                            vec![
+                                sym("record-field"),
+                                SExp::List(List::new(vec![sym("comma"), sym("rec")], dp())),
+                                sym(&rec_name),
+                                sym(fname),
+                            ],
+                            dp(),
+                        )),
+                    ],
+                    dp(),
+                )),
+            ],
+            dp(),
+        ));
+        progn_elems.push(SExp::List(List::new(
+            vec![
+                sym("define-macro"),
+                sym(&getter_name),
+                SExp::List(List::new(vec![], dp())),
+                SExp::List(List::new(vec![sym("match-lambda"), clause0, clause1], dp())),
+            ],
+            dp(),
+        )));
+
+        // update-<rec>-<field> and set-<rec>-<field>
+        for prefix in &["update", "set"] {
+            let setter_name = format!("{}-{}-{}", prefix, rec_name, fname);
+            progn_elems.push(make_macro_clause(
+                &setter_name,
+                vec![
+                    SExp::List(List::new(vec![sym("list"), sym("rec"), sym("new")], dp())),
+                    sym("$ENV"),
+                ],
+                SExp::List(List::new(
+                    vec![
+                        sym("backquote"),
+                        SExp::List(List::new(
+                            vec![
+                                sym("record-update"),
+                                SExp::List(List::new(vec![sym("comma"), sym("rec")], dp())),
+                                sym(&rec_name),
+                                sym(fname),
+                                SExp::List(List::new(vec![sym("comma"), sym("new")], dp())),
+                            ],
+                            dp(),
+                        )),
+                    ],
+                    dp(),
+                )),
+            ));
+        }
+    }
+
+    SExp::List(List::new(progn_elems, l.pos))
+}
+
+fn make_macro_clause(name: &str, pattern: Vec<SExp>, body: SExp) -> SExp {
+    let clause = SExp::List(List::new(
+        vec![SExp::List(List::new(pattern, dp())), body],
+        dp(),
+    ));
+    SExp::List(List::new(
+        vec![
+            sym("define-macro"),
+            sym(name),
+            SExp::List(List::new(vec![], dp())),
+            SExp::List(List::new(vec![sym("match-lambda"), clause], dp())),
+        ],
+        dp(),
+    ))
+}
 
 fn expand_deftype(l: &List) -> SExp {
     let name = &l.elements[1];
