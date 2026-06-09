@@ -12,6 +12,29 @@ pub struct LoweredForm {
 }
 
 pub fn lower_typed_fun(tf: &TypedFun, type_env: &TypeEnv) -> LoweredForm {
+    let func_body = if tf.clauses.len() > 1 {
+        lower_multi_clause(tf, type_env)
+    } else {
+        lower_single_clause(tf, type_env)
+    };
+
+    let define_function = SExp::List(List::new(
+        vec![
+            sym("define-function"),
+            sym(&tf.name),
+            SExp::List(List::new(vec![], dp())),
+            func_body,
+        ],
+        dp(),
+    ));
+
+    LoweredForm {
+        module_form: define_function,
+        line: tf.pos.line,
+    }
+}
+
+fn lower_single_clause(tf: &TypedFun, type_env: &TypeEnv) -> SExp {
     let arg_names: Vec<SExp> = tf.args.iter().map(|(name, _)| sym(name)).collect();
     let body_exprs: Vec<SExp> = tf.body.iter().map(strip_positions).collect();
 
@@ -21,17 +44,21 @@ pub fn lower_typed_fun(tf: &TypedFun, type_env: &TypeEnv) -> LoweredForm {
         .filter_map(|(name, type_str)| guards::guard_for_type(type_str, name, type_env))
         .collect();
 
-    let func_body = if guard_exprs.is_empty() {
+    if guard_exprs.is_empty() && tf.when_guard.is_none() {
         let mut lambda_elems = vec![sym("lambda"), SExp::List(List::new(arg_names, dp()))];
         lambda_elems.extend(body_exprs);
         SExp::List(List::new(lambda_elems, dp()))
     } else {
         let mut happy_clause = vec![SExp::List(List::new(arg_names.clone(), dp()))];
-        let when_expr = if guard_exprs.len() == 1 {
-            guard_exprs.into_iter().next().unwrap()
+        let mut all_guards = guard_exprs;
+        if let Some(when_g) = &tf.when_guard {
+            all_guards.push(strip_positions(when_g));
+        }
+        let when_expr = if all_guards.len() == 1 {
+            all_guards.into_iter().next().unwrap()
         } else {
             let mut and_elems = vec![sym("andalso")];
-            and_elems.extend(guard_exprs);
+            and_elems.extend(all_guards);
             SExp::List(List::new(and_elems, dp()))
         };
         happy_clause.push(SExp::List(List::new(vec![sym("when"), when_expr], dp())));
@@ -52,22 +79,52 @@ pub fn lower_typed_fun(tf: &TypedFun, type_env: &TypeEnv) -> LoweredForm {
         let fallback = SExp::List(List::new(fallback_clause, dp()));
 
         SExp::List(List::new(vec![sym("match-lambda"), happy, fallback], dp()))
-    };
-
-    let define_function = SExp::List(List::new(
-        vec![
-            sym("define-function"),
-            sym(&tf.name),
-            SExp::List(List::new(vec![], dp())),
-            func_body,
-        ],
-        dp(),
-    ));
-
-    LoweredForm {
-        module_form: define_function,
-        line: tf.pos.line,
     }
+}
+
+fn lower_multi_clause(tf: &TypedFun, type_env: &TypeEnv) -> SExp {
+    let mut ml_clauses = vec![sym("match-lambda")];
+
+    for clause in &tf.clauses {
+        let arg_patterns: Vec<SExp> = clause.args.iter().map(|(name, _)| sym(name)).collect();
+        let body_exprs: Vec<SExp> = clause.body.iter().map(strip_positions).collect();
+
+        let mut guard_exprs: Vec<SExp> = clause
+            .args
+            .iter()
+            .filter_map(|(name, type_str)| guards::guard_for_type(type_str, name, type_env))
+            .collect();
+
+        if let Some(when_g) = &clause.when_guard {
+            guard_exprs.push(strip_positions(when_g));
+        }
+
+        let mut clause_elems = vec![SExp::List(List::new(arg_patterns, dp()))];
+
+        if !guard_exprs.is_empty() {
+            let when_expr = if guard_exprs.len() == 1 {
+                guard_exprs.into_iter().next().unwrap()
+            } else {
+                let mut and_elems = vec![sym("andalso")];
+                and_elems.extend(guard_exprs);
+                SExp::List(List::new(and_elems, dp()))
+            };
+            clause_elems.push(SExp::List(List::new(vec![sym("when"), when_expr], dp())));
+        }
+
+        clause_elems.extend(body_exprs);
+        ml_clauses.push(SExp::List(List::new(clause_elems, dp())));
+    }
+
+    // Add a fallback clause for type-error reporting
+    let arity = tf.clauses[0].args.len();
+    let fallback_args: Vec<SExp> = (0..arity).map(|i| sym(&format!("-arg{}-", i))).collect();
+    let error_term = guards::type_error_term(&tf.name, 0, "", &tf.returns, &format!("-arg{}-", 0));
+    let mut fallback_clause = vec![SExp::List(List::new(fallback_args, dp()))];
+    fallback_clause.push(SExp::List(List::new(vec![sym("error"), error_term], dp())));
+    ml_clauses.push(SExp::List(List::new(fallback_clause, dp())));
+
+    SExp::List(List::new(ml_clauses, dp()))
 }
 
 fn build_first_bad_arg_check(tf: &TypedFun, type_env: &TypeEnv) -> SExp {

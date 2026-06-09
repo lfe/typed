@@ -8,6 +8,18 @@ pub struct TypedFun {
     pub returns: String,
     pub body: Vec<SExp>,
     pub pos: Position,
+    pub clauses: Vec<TypedClause>,
+    pub when_guard: Option<SExp>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TypedClause {
+    pub args: Vec<(String, String)>,
+    pub returns: String,
+    pub body: Vec<SExp>,
+    pub when_guard: Option<SExp>,
+    #[allow(dead_code)]
+    pub pos: Position,
 }
 
 #[derive(Debug, Clone)]
@@ -117,6 +129,13 @@ pub fn extract_typed_fun(form: &SExp) -> Result<TypedFun, CheckError> {
             });
         }
     };
+
+    // Disambiguate: keyword after name → single-clause; list → multi-clause
+    if elems.len() > 2 {
+        if let SExp::List(_) = &elems[2] {
+            return extract_multi_clause_fun(&name, elems, list.pos);
+        }
+    }
 
     let mut args = Vec::new();
     let mut returns = String::new();
@@ -291,12 +310,165 @@ pub fn extract_typed_fun(form: &SExp) -> Result<TypedFun, CheckError> {
         });
     }
 
+    let clause = TypedClause {
+        args: args.clone(),
+        returns: returns.clone(),
+        body: body.clone(),
+        when_guard: None,
+        pos: list.pos,
+    };
     Ok(TypedFun {
         name,
         args,
         returns,
         body,
         pos: list.pos,
+        clauses: vec![clause],
+        when_guard: None,
+    })
+}
+
+fn extract_multi_clause_fun(
+    name: &str,
+    elems: &[SExp],
+    pos: Position,
+) -> Result<TypedFun, CheckError> {
+    let mut clauses = Vec::new();
+
+    for clause_form in &elems[2..] {
+        let clause_list = match clause_form {
+            SExp::List(l) => l,
+            other => {
+                return Err(CheckError::Diagnostic {
+                    file: String::new(),
+                    pos: other.position(),
+                    message: "expected a clause ((:args ...) (:returns T) (:body ...))".to_string(),
+                });
+            }
+        };
+
+        let mut args = Vec::new();
+        let mut returns = String::new();
+        let mut body = Vec::new();
+        let mut when_guard = None;
+        let mut saw_args = false;
+        let mut saw_returns = false;
+        let mut saw_body = false;
+
+        let mut i = 0;
+        while i < clause_list.elements.len() {
+            match &clause_list.elements[i] {
+                SExp::List(section) if !section.elements.is_empty() => {
+                    if let SExp::Keyword(k) = &section.elements[0] {
+                        match k.name.as_str() {
+                            "args" if section.elements.len() >= 2 => {
+                                saw_args = true;
+                                if let SExp::List(arg_list) = &section.elements[1] {
+                                    for pair in &arg_list.elements {
+                                        match pair {
+                                            SExp::List(p) if p.elements.len() == 2 => {
+                                                let pat_name = match &p.elements[0] {
+                                                    SExp::Symbol(s) => s.value.clone(),
+                                                    other => format_sexp_flat(other),
+                                                };
+                                                let arg_type = match &p.elements[1] {
+                                                    SExp::Symbol(s) => s.value.clone(),
+                                                    SExp::List(l) => {
+                                                        format_sexp_flat(&SExp::List(l.clone()))
+                                                    }
+                                                    other => format_sexp_flat(other),
+                                                };
+                                                args.push((pat_name, arg_type));
+                                            }
+                                            SExp::List(p) if p.elements.len() == 3 => {
+                                                let pat_name = match &p.elements[0] {
+                                                    SExp::Symbol(s) => s.value.clone(),
+                                                    other => format_sexp_flat(other),
+                                                };
+                                                let arg_type =
+                                                    match (&p.elements[1], &p.elements[2]) {
+                                                        (
+                                                            SExp::Symbol(mod_s),
+                                                            SExp::Keyword(type_k),
+                                                        ) => format!(
+                                                            "{}:{}",
+                                                            mod_s.value, type_k.name
+                                                        ),
+                                                        _ => format_sexp_flat(pair),
+                                                    };
+                                                args.push((pat_name, arg_type));
+                                            }
+                                            _ => {
+                                                return Err(CheckError::Diagnostic {
+                                                    file: String::new(),
+                                                    pos: pair.position(),
+                                                    message: "expected (pattern type) pair"
+                                                        .to_string(),
+                                                });
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            "returns" if section.elements.len() >= 2 => {
+                                saw_returns = true;
+                                returns = match &section.elements[1] {
+                                    SExp::Symbol(s) => s.value.clone(),
+                                    other => format_sexp_flat(other),
+                                };
+                            }
+                            "when" if section.elements.len() >= 2 => {
+                                when_guard = Some(section.elements[1].clone());
+                            }
+                            "body" => {
+                                saw_body = true;
+                                for expr in &section.elements[1..] {
+                                    body.push(expr.clone());
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+
+        if !saw_args || !saw_returns || !saw_body {
+            return Err(CheckError::Diagnostic {
+                file: String::new(),
+                pos: clause_list.pos,
+                message: "clause requires :args, :returns, and :body sections".to_string(),
+            });
+        }
+
+        clauses.push(TypedClause {
+            args,
+            returns,
+            body,
+            when_guard,
+            pos: clause_list.pos,
+        });
+    }
+
+    if clauses.is_empty() {
+        return Err(CheckError::Diagnostic {
+            file: String::new(),
+            pos,
+            message: "multi-clause defun/typed requires at least one clause".to_string(),
+        });
+    }
+
+    let first = &clauses[0];
+    Ok(TypedFun {
+        name: name.to_string(),
+        args: first.args.clone(),
+        returns: first.returns.clone(),
+        body: first.body.clone(),
+        pos,
+        clauses,
+        when_guard: None,
     })
 }
 

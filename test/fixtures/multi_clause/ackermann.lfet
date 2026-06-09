@@ -1,0 +1,7 @@
+(defmodule ackermann
+  (export (ack 2)))
+
+(defun/typed ack
+  ((:args ((0 integer) (n integer))) (:returns integer) (:body (+ n 1)))
+  ((:args ((m integer) (0 integer))) (:returns integer) (:body (ack (- m 1) 1)))
+  ((:args ((m integer) (n integer))) (:returns integer) (:body (ack (- m 1) (ack m (- n 1))))))
