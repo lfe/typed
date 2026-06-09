@@ -1,9 +1,10 @@
 ;; Golden corpus: backquote / quasiquote
-;; Covers: lists, tuples, nested backquote, comma, comma-at, cons/append
+;; Covers: lists, tuples, maps, nested backquote, comma, comma-at, cons/append
 
 (defmodule backquote-corpus
   (export (simple-list 1) (splice 1) (tuple-unquote 1)
-          (nested-bq 1) (cons-pair 2) (empty-bq 0)))
+          (nested-bq 1) (cons-pair 2) (empty-bq 0)
+          (map-unquote 1) (map-multi 2)))
 
 ;; Simple list with comma
 (defun simple-list (x) `(a ,x c))
@@ -22,3 +23,9 @@
 
 ;; Empty backquote (constant)
 (defun empty-bq () `(a b c))
+
+;; Map with unquote
+(defun map-unquote (v) `#m(key ,v))
+
+;; Map with multiple unquotes
+(defun map-multi (k v) `#m(,k ,v name "fixed"))

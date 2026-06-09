@@ -1,22 +1,27 @@
 ;; Golden corpus: static predefined macros + def* lowering
-;; Covers: c*r, comparison aliases, list*, let*, do, fun, MODULE/LINE,
-;;         colon-call sugar, CL defun/defmacro
+;; Covers: c*r (car/caar/cddr), comparison aliases (!=, ===, !==),
+;;         list*, let*, flet*, do, fun, ? (receive), MODULE, LINE,
+;;         colon-call sugar, CL def* lowering (defun, defmacro, flet,
+;;         fletrec, macrolet, deftype, defspec)
 
 (defmodule predef-corpus
   (export (car-test 1) (caar-test 1) (cddr-test 1)
-          (neq-test 2) (seq-test 2)
-          (list*-test 3) (let*-test 1) (do-test 1)
-          (fun-ref 0) (module-name 0)
-          (colon-call 1)))
+          (neq-test 2) (seq-test 2) (sneq-test 2)
+          (list*-test 3) (let*-test 1) (flet*-test 1) (do-test 1)
+          (fun-ref 0) (recv-test 0) (module-name 0) (line-test 0)
+          (colon-call 1)
+          (flet-test 1) (fletrec-test 1) (macrolet-test 1)
+          (add 2)))
 
 ;; c*r accessors
 (defun car-test (x) (car x))
 (defun caar-test (x) (caar x))
 (defun cddr-test (x) (cddr x))
 
-;; Comparison aliases
+;; Comparison aliases: !=, ===, !==
 (defun neq-test (a b) (!= a b))
 (defun seq-test (a b) (=== a b))
+(defun sneq-test (a b) (!== a b))
 
 ;; list*
 (defun list*-test (a b c) (list* a b c))
@@ -27,6 +32,12 @@
          (b (* a 2)))
     b))
 
+;; flet*
+(defun flet*-test (x)
+  (flet* ((add1 (n) (+ n 1))
+          (dbl (n) (* n 2)))
+    (dbl (add1 x))))
+
 ;; do loop
 (defun do-test (n)
   (do ((i 0 (+ i 1))
@@ -36,8 +47,44 @@
 ;; fun reference
 (defun fun-ref () (fun lists:reverse 1))
 
+;; ? (receive with timeout)
+(defun recv-test ()
+  (? 1000 'timeout))
+
 ;; MODULE
 (defun module-name () (MODULE))
 
+;; LINE
+(defun line-test () (LINE))
+
 ;; Colon call sugar
 (defun colon-call (x) (erlang:atom_to_list x))
+
+;; --- CL def* lowering family (Tier-1 pure transforms) ---
+
+;; defmacro -> define-macro
+(defmacro my-const () `42)
+
+;; flet -> let-function
+(defun flet-test (x)
+  (flet ((helper (n) (+ n 1)))
+    (helper x)))
+
+;; fletrec -> letrec-function
+(defun fletrec-test (n)
+  (fletrec ((loop (i acc)
+              (if (== i 0) acc (loop (- i 1) (+ acc i)))))
+    (loop n 0)))
+
+;; macrolet (expand-time local macro)
+(defun macrolet-test (x)
+  (macrolet ((double (n) `(* ,n 2)))
+    (double x)))
+
+;; deftype (Erlang type attribute)
+(deftype my-type () (union (integer) (atom)))
+
+;; defspec (Erlang spec attribute)
+(defspec add ((integer) (integer)) integer)
+
+(defun add (a b) (+ a b))

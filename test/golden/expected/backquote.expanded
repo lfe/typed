@@ -7,7 +7,9 @@
       (tuple-unquote 1)
       (nested-bq 1)
       (cons-pair 2)
-      (empty-bq 0))))
+      (empty-bq 0)
+      (map-unquote 1)
+      (map-multi 2))))
   (define-macro MODULE () (match-lambda (((list) $ENV) `'backquote-corpus))))
 (define-function simple-list () (lambda (x) (list 'a x 'c)))
 (define-function splice () (lambda (xs) (cons 'start (++ xs (list 'end)))))
@@ -17,3 +19,7 @@
   (lambda (x) (list 'outer (list 'backquote (list 'inner (list 'comma x))))))
 (define-function cons-pair () (lambda (a b) (cons a b)))
 (define-function empty-bq () (lambda () (list 'a 'b 'c)))
+(define-function map-unquote () (lambda (v) (map 'key v)))
+(define-function map-multi
+  ()
+  (lambda (k v) (map 'name (list 102 105 120 101 100) k v)))
