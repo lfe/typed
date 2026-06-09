@@ -59,6 +59,7 @@ fn main() {
     };
 
     if expand_only {
+        expander::reset_counters();
         let expanded: Vec<(sexp::types::SExp, usize)> = forms
             .iter()
             .enumerate()
