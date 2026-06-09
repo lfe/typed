@@ -121,3 +121,28 @@ semantics — which is a large, separable project; for that tier the pragmatic f
 is **delegation to the Erlang oracle**, not reimplementing the BEAM in Rust. Recommend:
 build the oracle + corpus, port Tier 1 to retire the ad-hoc reader code, and explicitly
 decide (a/b/c) for Tier 2 as its own milestone rather than letting it block Tier 1.
+
+## M9.x interim series (DECIDED — Duncan, 2026-06-08): implement Tier 1 now
+
+**Why now, not later:** the typed driver runs **no `lfe_macro`**, so *no* macro expansion
+happens on passed-through forms. Backquote was the first symptom (M9 D-4); `cond`, `let*`,
+`do`, `defrecord`, etc. in real LFE break identically. A faithful Tier-1 expander is the
+prerequisite for the pipeline to compile real LFE — so it lands as an interim **M9.x**
+series before M10 (naming). M10 and beyond wait.
+
+- **M9.1 — Phase 0: oracle + corpus + harness.** Erlang escript wrapping the real
+  `lfe_macro` (`read_file → expand_form → print1`); a golden corpus covering Tier-1
+  categories; a diff harness; pinned conventions (`keep`, printer, gensym). No Rust port.
+- **M9.2 — Phase 1a: backquote + core-form recursion.** Port `exp_backquote` + the
+  `exp_form` structural recursion faithfully; **run expansion over ALL emitted forms**
+  (replaces the ad-hoc `qq_expand`; fixes the plain-`defun` gap noted at M9 close);
+  oracle-validated. The immediate win — retires the two fragile backquote attempts.
+- **M9.3 — Phase 1b: static predef + records.** Port the static `exp_predef` table (`c*r`,
+  comparison aliases, `list*`/`let*`/`flet*`/`do`/`fun`/`?`, CL `def*` lowering,
+  `MODULE`/`LINE`, colon-call sugar) + `defrecord`/`defstruct` generation + gensym
+  byte-fidelity; oracle-validated. After this the pipeline compiles real LFE using Tier-1
+  macros.
+
+Tier 2 (eval-time macros) and Tier 3 (includes/QLC/imported) remain explicitly out — to be
+decided (delegate vs. embed vs. reimplement) as their own future milestone, not blocking
+this series.

@@ -179,6 +179,7 @@ This project was planned before it was built. The reasoning is all in the open:
 - **M8 — Extension standardization** ✅ *(.tlfe → .lfet; provider/scanner globs; mixed .lfet/.lfe separation)*
 - **M9 — Reader correctness** ✅ *(char, tuple, binary, quasiquote/unquote, cons dot; all 5 dirs files parse)*
 - **M9 — Reader correctness** *(full LFE reader forms in the sexp reader: tuple `#(…)`, binary `#"…"`, char `#\c`, quasiquote/unquote `` ` `` `,` `,@`)*
+- **M9.1–M9.3 — Faithful macro expander (Tier 1)** *(Erlang oracle + golden corpus; port backquote + core-form recursion + static predef macros + defrecord/defstruct to Rust, oracle-validated — the pipeline runs no `lfe_macro`, so real LFE needs this)*
 - **M10 — Naming convention** *(`deftype` → `deftype/typed`; formalize the `<lfe-form>/typed` convention across all typed macros)*
 - **M11 — Surface features** *(multi-clause `defun/typed` heads, `when` guards in clauses/patterns — the surface needed to type real LFE)*
 - **M12 — Real-world port** *(port an existing module — [lfex/dirs](https://github.com/lfex/dirs) — to typed, reality-grading the design)*
