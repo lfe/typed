@@ -21,7 +21,31 @@
 
 ## CDC Verification
 
-_(Filled in by CDC against the closing SHA.)_
+**Verifier:** Claude (CDC), 2026-06-09, against `6a9700a`. **Method:** inspected `adt.rs`
+(`extract_deftype`), `cross_module.rs` (`is_deftype`), the `n2` negative test, fixture grep,
+`usage.md`.
+
+**ACCEPTED — M10 CLOSED.** All six rows hold:
+
+- **N-1 ✅** `extract_deftype` recognizes only `deftype/typed` (adt.rs:94), rejects otherwise
+  ("expected deftype/typed"). Test `n1_deftype_typed_recognized`.
+- **N-2 ✅ — the stop-the-shadow negative, genuinely tested.** `n2_bare_deftype_not_typed`
+  parses a *realistic* bare `(deftype my-type () (union (integer) (atom)))` (real LFE type-spec
+  syntax) and asserts `extract_deftype` returns `Err` — bare `deftype` is no longer captured as
+  a typed ADT, freeing the name for LFE. (Minor: full passthrough-to-BEAM of a bare `deftype`
+  isn't separately CT'd, but the recognition negative is the substantive claim and the M9.2
+  all-forms passthrough covers the rest.)
+- **N-3 ✅** cross-module scanner `is_deftype` keys on `deftype/typed` (cross_module.rs:253);
+  9-test cross-module CT green on the new form.
+- **N-4 ✅** grep `(deftype ` in fixtures is **empty** (18 fixtures + 29 test strings renamed);
+  the one intentional bare `deftype` lives in the `n2` Rust test string.
+- **N-5 ✅** `docs/usage.md` carries the `<lfe-form>/typed` convention table (deftype/typed,
+  defun/typed, defrecord/typed, case/typed; `import-types` the documented exception); README
+  taste updated.
+- **N-6 ✅** 100 Rust / 82 CT / `make check` clean.
+
+**M10 CLOSED (CDC-accepted) at `6a9700a`.** The `<lfe-form>/typed` convention is now uniform and
+documented; bare `deftype` belongs to LFE again. The train is clean through M10.
 
 ## Closure
 
