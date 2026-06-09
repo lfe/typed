@@ -3,6 +3,7 @@ mod cross_module;
 mod diagnostic;
 mod eetf;
 mod error;
+mod expander;
 mod guards;
 mod lower;
 mod match_lower;
@@ -277,7 +278,7 @@ fn main() {
                     }
 
                     let expanded_body: Vec<sexp::types::SExp> =
-                        tf.body.iter().map(lower::expand_quasiquotes).collect();
+                        tf.body.iter().map(expander::expand_form).collect();
                     let body = lower_body_constructions(
                         &expanded_body,
                         &env,
@@ -396,7 +397,11 @@ fn main() {
     // (maps:get, io_lib:format) requires (call 'mod 'fun ...) internal form
     // that the current EETF encoder doesn't support. Deferred to M4.7.
 
-    let eetf_bytes = eetf::encode_forms(&form_line_pairs);
+    let expanded_pairs: Vec<(sexp::types::SExp, usize)> = form_line_pairs
+        .into_iter()
+        .map(|(form, line)| (expander::expand_form(&form), line))
+        .collect();
+    let eetf_bytes = eetf::encode_forms(&expanded_pairs);
 
     match output_file {
         Some(path) => {
