@@ -65,6 +65,10 @@ fn expand_core_form(form: &SExp) -> SExp {
         "receive" => expand_receive(l),
         "lc" | "bc" => expand_comprehension(l),
         "let-function" | "letrec-function" => expand_let_function(l),
+        "defun" if l.elements.len() >= 4 => expand_defun(l),
+        "defmodule" if l.elements.len() >= 3 => expand_defmodule(l),
+        "defmacro" if l.elements.len() >= 4 => expand_defmacro(l),
+        "cond" if l.elements.len() >= 2 => expand_cond(l),
         _ => form.clone(),
     }
 }
@@ -339,6 +343,168 @@ fn expand_comprehension(l: &List) -> SExp {
         .map(|(i, e)| if i == 0 { e.clone() } else { expand_form(e) })
         .collect();
     SExp::List(List::new(elems, l.pos))
+}
+
+fn expand_defun(l: &List) -> SExp {
+    let name = l.elements[1].clone();
+    if let SExp::List(args) = &l.elements[2] {
+        if args.elements.iter().all(|e| matches!(e, SExp::Symbol(_))) {
+            let mut lambda_elems = vec![sym("lambda"), l.elements[2].clone()];
+            for body in &l.elements[3..] {
+                lambda_elems.push(expand_form(body));
+            }
+            return SExp::List(List::new(
+                vec![
+                    sym("define-function"),
+                    name,
+                    SExp::List(List::new(vec![], dp())),
+                    SExp::List(List::new(lambda_elems, dp())),
+                ],
+                l.pos,
+            ));
+        }
+    }
+    let mut clauses = Vec::new();
+    for clause_form in &l.elements[2..] {
+        if let SExp::List(_) = clause_form {
+            let expanded_clause = expand_clause(clause_form);
+            clauses.push(expanded_clause);
+        } else {
+            clauses.push(clause_form.clone());
+        }
+    }
+    let mut ml_elems = vec![sym("match-lambda")];
+    ml_elems.extend(clauses);
+    SExp::List(List::new(
+        vec![
+            sym("define-function"),
+            name,
+            SExp::List(List::new(vec![], dp())),
+            SExp::List(List::new(ml_elems, dp())),
+        ],
+        l.pos,
+    ))
+}
+
+fn expand_defmodule(l: &List) -> SExp {
+    let name = &l.elements[1];
+    let mut attrs = Vec::new();
+    for attr in &l.elements[2..] {
+        attrs.push(expand_form(attr));
+    }
+    let module_name_str = match name {
+        SExp::Symbol(s) => s.value.clone(),
+        _ => "unknown".to_string(),
+    };
+
+    let define_module = SExp::List(List::new(
+        vec![
+            sym("define-module"),
+            name.clone(),
+            SExp::List(List::new(vec![], dp())),
+            SExp::List(List::new(attrs, dp())),
+        ],
+        l.pos,
+    ));
+
+    let module_macro = SExp::List(List::new(
+        vec![
+            sym("define-macro"),
+            sym("MODULE"),
+            SExp::List(List::new(vec![], dp())),
+            SExp::List(List::new(
+                vec![
+                    sym("match-lambda"),
+                    SExp::List(List::new(
+                        vec![
+                            SExp::List(List::new(
+                                vec![SExp::List(List::new(vec![sym("list")], dp())), sym("$ENV")],
+                                dp(),
+                            )),
+                            SExp::List(List::new(
+                                vec![
+                                    sym("backquote"),
+                                    SExp::List(List::new(
+                                        vec![sym("quote"), sym(&module_name_str)],
+                                        dp(),
+                                    )),
+                                ],
+                                dp(),
+                            )),
+                        ],
+                        dp(),
+                    )),
+                ],
+                dp(),
+            )),
+        ],
+        dp(),
+    ));
+
+    SExp::List(List::new(
+        vec![sym("progn"), define_module, module_macro],
+        l.pos,
+    ))
+}
+
+fn expand_defmacro(l: &List) -> SExp {
+    let name = l.elements[1].clone();
+    let mut clauses = Vec::new();
+    for clause_form in &l.elements[2..] {
+        if let SExp::List(clause) = clause_form {
+            let mut clause_elems = Vec::new();
+            if let Some(first) = clause.elements.first() {
+                let args = vec![first.clone(), sym("$ENV")];
+                clause_elems.push(SExp::List(List::new(args, dp())));
+            }
+            for body in clause.elements.iter().skip(1) {
+                clause_elems.push(expand_form(body));
+            }
+            clauses.push(SExp::List(List::new(clause_elems, dp())));
+        } else {
+            clauses.push(clause_form.clone());
+        }
+    }
+    let mut ml_elems = vec![sym("match-lambda")];
+    ml_elems.extend(clauses);
+    SExp::List(List::new(
+        vec![
+            sym("define-macro"),
+            name,
+            SExp::List(List::new(vec![], dp())),
+            SExp::List(List::new(ml_elems, dp())),
+        ],
+        l.pos,
+    ))
+}
+
+fn expand_cond(l: &List) -> SExp {
+    let clauses = &l.elements[1..];
+    expand_cond_clauses(clauses)
+}
+
+fn expand_cond_clauses(clauses: &[SExp]) -> SExp {
+    if clauses.is_empty() {
+        return SExp::List(List::new(vec![sym("quote"), sym("false")], dp()));
+    }
+    match &clauses[0] {
+        SExp::List(clause) if !clause.elements.is_empty() => {
+            let test = expand_form(&clause.elements[0]);
+            let body: Vec<SExp> = clause.elements[1..].iter().map(expand_form).collect();
+            let else_branch = expand_cond_clauses(&clauses[1..]);
+            let mut if_elems = vec![sym("if"), test];
+            if body.len() == 1 {
+                if_elems.push(body.into_iter().next().unwrap());
+            } else {
+                let mut progn = vec![sym("progn")];
+                progn.extend(body);
+                if_elems.push(SExp::List(List::new(progn, dp())));
+            }
+            if_elems.push(else_branch);
+            SExp::List(List::new(if_elems, dp()))
+        }
+        _ => SExp::List(List::new(vec![sym("quote"), sym("false")], dp())),
+    }
 }
 
 fn expand_let_function(l: &List) -> SExp {

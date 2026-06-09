@@ -63,6 +63,7 @@ fn main() {
     let mut had_error = false;
     let mut env = type_env::TypeEnv::new();
     let mut pending_forms: Vec<&sexp::types::SExp> = Vec::new();
+    let mut plain_forms: Vec<(sexp::types::SExp, usize)> = Vec::new();
     let mut imports: Vec<cross_module::ImportedType> = Vec::new();
     let mut local_type_names: Vec<String> = Vec::new();
 
@@ -110,6 +111,13 @@ fn main() {
             continue;
         }
 
+        if is_defun_plain(form) {
+            let line = match form {
+                sexp::types::SExp::List(l) => l.pos.line,
+                _ => 1,
+            };
+            plain_forms.push((form.clone(), line));
+        }
         pending_forms.push(form);
     }
 
@@ -393,6 +401,9 @@ fn main() {
     // Emit record functions
     form_line_pairs.extend(record_forms);
 
+    // Emit plain defun forms (passthrough, will be expanded later)
+    form_line_pairs.extend(plain_forms);
+
     // render-type-error helper deferred: generating module-qualified calls
     // (maps:get, io_lib:format) requires (call 'mod 'fun ...) internal form
     // that the current EETF encoder doesn't support. Deferred to M4.7.
@@ -668,6 +679,12 @@ fn validate_type_ref(
         // or genuinely unknown. For now, let it through (import aliases are registered).
     }
     Ok(())
+}
+
+fn is_defun_plain(form: &sexp::types::SExp) -> bool {
+    matches!(form, sexp::types::SExp::List(l)
+        if l.elements.len() >= 4
+            && matches!(&l.elements[0], sexp::types::SExp::Symbol(s) if s.value == "defun"))
 }
 
 fn is_import_types(form: &sexp::types::SExp) -> bool {

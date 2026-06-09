@@ -1,0 +1,9 @@
+(defmodule plain_defun
+  (export (classify 1)))
+
+(defun classify (os-tuple)
+  (case os-tuple
+    (#(unix linux) 'linux)
+    (#(unix darwin) 'macos)
+    (`#(unix ,unsup) unsup)
+    (_ 'other)))

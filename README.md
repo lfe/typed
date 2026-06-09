@@ -180,6 +180,7 @@ This project was planned before it was built. The reasoning is all in the open:
 - **M9 — Reader correctness** ✅ *(char, tuple, binary, quasiquote/unquote, cons dot; all 5 dirs files parse)*
 - **M9.1 — Expander oracle + corpus** ✅ *(oracle escript, golden corpus for all Tier-1 categories, harness, conventions)*
 - **M9.2 — Faithful backquote port** ✅ *(Rust exp_backquote, core-form recursion, run over all forms, qq_expand retired)*
+- **M9.3 — Predef + def\* lowering** 🚧 *(defun/defmodule/defmacro/cond lowering, plain defun compile+run proven)*
 - **M9 — Reader correctness** *(full LFE reader forms in the sexp reader: tuple `#(…)`, binary `#"…"`, char `#\c`, quasiquote/unquote `` ` `` `,` `,@`)*
 - **M9.1–M9.3 — Faithful macro expander (Tier 1)** *(Erlang oracle + golden corpus; port backquote + core-form recursion + static predef macros + defrecord/defstruct to Rust, oracle-validated — the pipeline runs no `lfe_macro`, so real LFE needs this)*
 - **M10 — Naming convention** *(`deftype` → `deftype/typed`; formalize the `<lfe-form>/typed` convention across all typed macros)*
@@ -203,7 +204,7 @@ the typed/untyped boundary, typed records (`defrecord/typed`) with generated
 constructors, accessors, and functional updaters — all type-aware — and cross-module
 type references (`mod:type` and `import-types`) with project scanning. The diagnostic
 engine renders Gleam-grade errors with span+caret in both human and JSON formats.
-98 Rust tests, 81 LFE CT tests, `make check` clean.
+98 Rust tests, 82 LFE CT tests, `make check` clean.
 
 If the ideas here interest you, the design docs are the best place to start, and
 feedback (especially on syntax) is enormously welcome.

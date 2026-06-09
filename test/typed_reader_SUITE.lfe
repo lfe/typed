@@ -34,7 +34,8 @@
    (d4_quasiquote_unquote 1)
    (d4_quasiquote_splice 1)
    (d4_qq_tuple_pattern_binds 1)
-   (d4_qq_tuple_expression 1)))
+   (d4_qq_tuple_expression 1)
+   (p8_plain_defun_qq_tuple 1)))
 
 (defun all ()
   '(d2_tuple_expression
@@ -43,7 +44,8 @@
     d4_quasiquote_unquote
     d4_quasiquote_splice
     d4_qq_tuple_pattern_binds
-    d4_qq_tuple_expression))
+    d4_qq_tuple_expression
+    p8_plain_defun_qq_tuple))
 
 (defun suite () `(#(timetrap #(seconds 60))))
 
@@ -134,6 +136,19 @@
     (case result
       (#(ok 42) 'ok)
       (other (ct:fail `#(wrong_wrap ,other))))))
+
+;;; ============================================================
+;;; P-8: Fully-plain defun with quasiquoted tuple pattern
+;;; ============================================================
+
+(defun p8_plain_defun_qq_tuple (config)
+  (compile-and-load config "reader" "plain_defun.lfet" 'plain_defun)
+  (let ((c1 (plain_defun:classify #(unix linux)))
+        (c2 (plain_defun:classify #(unix freebsd)))
+        (c3 (plain_defun:classify #(win32 nt))))
+    (case (tuple c1 c2 c3)
+      (#(linux freebsd other) 'ok)
+      (other (ct:fail `#(wrong_classify ,other))))))
 
 ;;; ============================================================
 ;;; Helpers
