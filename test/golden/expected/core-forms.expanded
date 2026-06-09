@@ -1,0 +1,27 @@
+(progn 
+  (define-module core-forms-corpus
+    ()
+    ((export
+      (case-with-bq 1)
+      (let-with-macro 1)
+      (lambda-body 0)
+      (progn-expand 1)
+      (if-macro 1)
+      (try-expand 1)
+      (lc-expand 1))))
+  (define-macro MODULE () (match-lambda (((list) $ENV) `'core-forms-corpus))))
+(define-function case-with-bq
+  ()
+  (lambda (x) (case x ('a (list 'result x)) (_ 'other))))
+(define-function let-with-macro
+  ()
+  (lambda (x) (let ((a (+ x 1))) (let ((b (+ a 2))) (progn b)))))
+(define-function lambda-body () (lambda () (lambda (x) (list 'wrapped x))))
+(define-function progn-expand () (lambda (x) (progn (let ((y (+ x 1))) y))))
+(define-function if-macro
+  ()
+  (lambda (x) (if (> x 0) (list 'positive x) (list 'negative x))))
+(define-function try-expand
+  ()
+  (lambda (x) (try (+ x 1) (catch ((tuple _ reason _) reason)))))
+(define-function lc-expand () (lambda (xs) (lc ((<- x xs) (> x 0)) (* x 2))))

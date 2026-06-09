@@ -1985,11 +1985,11 @@ fn d6_dangling_comma() {
 #[test]
 fn d7_dirs_files_parse() {
     let dirs_files = [
-        "../test/fixtures/dirs/dirs.lfe",
-        "../test/fixtures/dirs/dirs-common.lfe",
-        "../test/fixtures/dirs/dirs-lin.lfe",
-        "../test/fixtures/dirs/dirs-mac.lfe",
-        "../test/fixtures/dirs/dirs-win.lfe",
+        "../test/fixtures/dirs/dirs.lfe.txt",
+        "../test/fixtures/dirs/dirs-common.lfe.txt",
+        "../test/fixtures/dirs/dirs-lin.lfe.txt",
+        "../test/fixtures/dirs/dirs-mac.lfe.txt",
+        "../test/fixtures/dirs/dirs-win.lfe.txt",
     ];
     for path in &dirs_files {
         let result = Parser::parse_all_file(path);

@@ -1,0 +1,40 @@
+(progn 
+  (define-module predef-corpus
+    ()
+    ((export
+      (car-test 1)
+      (caar-test 1)
+      (cddr-test 1)
+      (neq-test 2)
+      (seq-test 2)
+      (list*-test 3)
+      (let*-test 1)
+      (do-test 1)
+      (fun-ref 0)
+      (module-name 0)
+      (colon-call 1))))
+  (define-macro MODULE () (match-lambda (((list) $ENV) `'predef-corpus))))
+(define-function car-test () (lambda (x) (car x)))
+(define-function caar-test () (lambda (x) (car (car x))))
+(define-function cddr-test () (lambda (x) (cdr (cdr x))))
+(define-function neq-test () (lambda (a b) (!= a b)))
+(define-function seq-test () (lambda (a b) (=== a b)))
+(define-function list*-test () (lambda (a b c) (cons a (cons b c))))
+(define-function let*-test
+  ()
+  (lambda (x) (let ((a (+ x 1))) (let ((b (* a 2))) (progn b)))))
+(define-function do-test
+  ()
+  (lambda (n)
+    (letrec-function ((do$^0
+                       (lambda (i acc)
+                         (if (== i n)
+                           acc
+                           (let ((do-state (progn)))
+                             (do$^0 (+ i 1) (+ acc i)))))))
+      (do$^0 0 0))))
+(define-function fun-ref
+  ()
+  (lambda () (lambda (|\|-0-\||) (call 'lists 'reverse |\|-0-\||))))
+(define-function module-name () (lambda () 'predef-corpus))
+(define-function colon-call () (lambda (x) (call 'erlang 'atom_to_list x)))

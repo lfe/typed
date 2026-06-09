@@ -1,0 +1,45 @@
+;; Golden corpus: macros nested inside core forms
+;; Covers: case, let, lambda, progn, if, try, comprehension
+
+(defmodule core-forms-corpus
+  (export (case-with-bq 1) (let-with-macro 1) (lambda-body 0)
+          (progn-expand 1) (if-macro 1) (try-expand 1) (lc-expand 1)))
+
+;; Macro inside case clause body
+(defun case-with-bq (x)
+  (case x
+    ('a `(result ,x))
+    (_ 'other)))
+
+;; Let binding using macro
+(defun let-with-macro (x)
+  (let* ((a (+ x 1))
+         (b (+ a 2)))
+    b))
+
+;; Lambda body with macro
+(defun lambda-body ()
+  (lambda (x) `(wrapped ,x)))
+
+;; Progn with multiple expansions
+(defun progn-expand (x)
+  (progn
+    (let ((y (+ x 1)))
+      y)))
+
+;; If with macro in branches
+(defun if-macro (x)
+  (if (> x 0)
+    `(positive ,x)
+    `(negative ,x)))
+
+;; Try with macro
+(defun try-expand (x)
+  (try
+    (+ x 1)
+    (catch
+      (`#(,_ ,reason ,_) reason))))
+
+;; List comprehension
+(defun lc-expand (xs)
+  (lc ((<- x xs) (> x 0)) (* x 2)))

@@ -1,0 +1,24 @@
+;; Golden corpus: backquote / quasiquote
+;; Covers: lists, tuples, nested backquote, comma, comma-at, cons/append
+
+(defmodule backquote-corpus
+  (export (simple-list 1) (splice 1) (tuple-unquote 1)
+          (nested-bq 1) (cons-pair 2) (empty-bq 0)))
+
+;; Simple list with comma
+(defun simple-list (x) `(a ,x c))
+
+;; Comma-at splicing
+(defun splice (xs) `(start ,@xs end))
+
+;; Tuple with unquote
+(defun tuple-unquote (x) `#(ok ,x))
+
+;; Nested backquote
+(defun nested-bq (x) `(outer `(inner ,,x)))
+
+;; Cons pair construction
+(defun cons-pair (a b) `(,a . ,b))
+
+;; Empty backquote (constant)
+(defun empty-bq () `(a b c))

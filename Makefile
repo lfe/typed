@@ -238,9 +238,39 @@ docs-rust:
 # Erlang-specific
 # ============================================================
 
-.PHONY: dialyzer xref
+.PHONY: dialyzer xref golden-generate golden-verify
 dialyzer:
 	@$(REBAR) dialyzer
 
 xref:
 	@$(REBAR) xref
+
+# Expander oracle: generate and verify golden corpus
+golden-generate:
+	@echo "$(BLUE)Generating golden outputs from oracle...$(RESET)"
+	@for f in test/golden/corpus/*.lfe.txt; do \
+		base=$$(basename "$$f" .lfe.txt); \
+		scripts/expand-oracle "$$f" > "test/golden/expected/$${base}.expanded" 2>&1; \
+		echo "  $$base"; \
+	done
+	@echo "$(GREEN)✓ Goldens generated$(RESET)"
+
+golden-verify:
+	@echo "$(BLUE)Verifying golden outputs against oracle...$(RESET)"
+	@fail=0; \
+	for f in test/golden/corpus/*.lfe.txt; do \
+		base=$$(basename "$$f" .lfe.txt); \
+		expected="test/golden/expected/$${base}.expanded"; \
+		actual=$$(scripts/expand-oracle "$$f" 2>&1); \
+		if [ "$$actual" = "$$(cat $$expected)" ]; then \
+			echo "  $(GREEN)✓$(RESET) $$base"; \
+		else \
+			echo "  $(RED)✗$(RESET) $$base (oracle output differs from committed golden)"; \
+			fail=1; \
+		fi; \
+	done; \
+	if [ $$fail -eq 1 ]; then \
+		echo "$(RED)Golden verification FAILED — run 'make golden-generate' to update$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)✓ All goldens verified$(RESET)"

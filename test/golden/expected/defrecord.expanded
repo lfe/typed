@@ -1,0 +1,72 @@
+(progn 
+  (define-module defrecord-corpus
+    ()
+    ((export (make-person 0) (get-name 1) (set-age 2))))
+  (define-macro MODULE () (match-lambda (((list) $ENV) `'defrecord-corpus))))
+(progn 
+  (define-record person (name (age 0) email))
+  (define-macro make-person
+    ()
+    (match-lambda ((fds $ENV) `(record person ,@fds))))
+  (define-macro match-person
+    ()
+    (match-lambda ((fds $ENV) `(record person ,@fds))))
+  (define-macro is-person
+    ()
+    (match-lambda (((list rec) $ENV) `(is-record ,rec person))))
+  (define-macro update-person
+    ()
+    (match-lambda (((cons rec fds) $ENV) `(record-update ,rec person ,@fds))))
+  (define-macro set-person
+    ()
+    (match-lambda (((cons rec fds) $ENV) `(record-update ,rec person ,@fds))))
+  (define-macro fields-person
+    ()
+    (match-lambda (((list) $ENV) `'(name age email))))
+  (define-macro size-person () (match-lambda (((list) $ENV) 4)))
+  (define-macro person-name
+    ()
+    (match-lambda 
+      ((() $ENV) '(record-index person name))
+      (((list rec) $ENV) `(record-field ,rec person name))))
+  (define-macro update-person-name
+    ()
+    (match-lambda 
+      (((list rec new) $ENV) `(record-update ,rec person name ,new))))
+  (define-macro set-person-name
+    ()
+    (match-lambda 
+      (((list rec new) $ENV) `(record-update ,rec person name ,new))))
+  (define-macro person-age
+    ()
+    (match-lambda 
+      ((() $ENV) '(record-index person age))
+      (((list rec) $ENV) `(record-field ,rec person age))))
+  (define-macro update-person-age
+    ()
+    (match-lambda 
+      (((list rec new) $ENV) `(record-update ,rec person age ,new))))
+  (define-macro set-person-age
+    ()
+    (match-lambda 
+      (((list rec new) $ENV) `(record-update ,rec person age ,new))))
+  (define-macro person-email
+    ()
+    (match-lambda 
+      ((() $ENV) '(record-index person email))
+      (((list rec) $ENV) `(record-field ,rec person email))))
+  (define-macro update-person-email
+    ()
+    (match-lambda 
+      (((list rec new) $ENV) `(record-update ,rec person email ,new))))
+  (define-macro set-person-email
+    ()
+    (match-lambda 
+      (((list rec new) $ENV) `(record-update ,rec person email ,new)))))
+(define-function make-person
+  ()
+  (lambda () (record person name "Alice" age 30 email "alice@example.com")))
+(define-function get-name () (lambda (p) (record-field p person name)))
+(define-function set-age
+  ()
+  (lambda (p new-age) (record-update p person age new-age)))

@@ -1,0 +1,60 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%% Oracle for LFE macro expansion.
+%%% Wraps the real lfe_macro to produce ground-truth expanded forms.
+%%% Usage: scripts/expand-oracle <file.lfe>
+%%%
+%%% Conventions (bind the Rust port):
+%%%   deep  = true  (full expansion)
+%%%   keep  = true  (retain definitions for inspection)
+%%%   printer = lfe_io:prettyprint1/1 (stable, readable)
+
+%% Mirror of lfe_macro.hrl #mac{} — must match LFE 2.2.1
+-record(mac, {deep=true, keep=true, module='-no-module-', line=1,
+              vc=0, fc=0, file=[], opts=[], ipath=[],
+              errors=[], warnings=[], unloadable=[]}).
+
+main([File]) ->
+    setup_paths(),
+    case lfe_io:read_file(File) of
+        {ok, Forms} ->
+            expand_and_print(Forms, File);
+        {error, Reason} ->
+            io:format(standard_error, "Error reading ~s: ~p~n", [File, Reason]),
+            halt(1)
+    end;
+main(_) ->
+    io:format(standard_error, "Usage: expand-oracle <file.lfe>~n", []),
+    halt(2).
+
+expand_and_print(FileForms, File) ->
+    Env0 = lfe_env:new(),
+    Mac0 = lfe_macro:expand_form_init(true, true),
+    Mac1 = Mac0#mac{file=File},
+    expand_forms(FileForms, Env0, Mac1, File).
+
+expand_forms([], _Env, _Mac, _File) ->
+    ok;
+expand_forms([Form | Rest], Env, Mac, File) ->
+    Line = Mac#mac.line,
+    case lfe_macro:expand_form(Form, Line, Env, Mac) of
+        {ok, Expanded, NewEnv, NewMac} ->
+            print_form(Expanded),
+            expand_forms(Rest, NewEnv, NewMac#mac{line=Line+1}, File);
+        {error, Errors, _Warnings, NewMac} ->
+            io:format(standard_error, "~s:~p: expansion errors: ~p~n",
+                      [File, Line, Errors]),
+            print_form(Form),
+            expand_forms(Rest, Env, NewMac#mac{line=Line+1}, File)
+    end.
+
+print_form(Form) ->
+    Str = lfe_io:prettyprint1(Form),
+    io:put_chars(Str),
+    io:nl().
+
+setup_paths() ->
+    ScriptDir = filename:dirname(escript:script_name()),
+    ProjectRoot = filename:dirname(ScriptDir),
+    LfeEbin = filename:join([ProjectRoot, "_build", "default", "lib", "lfe", "ebin"]),
+    code:add_pathz(LfeEbin).

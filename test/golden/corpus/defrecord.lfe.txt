@@ -1,0 +1,15 @@
+;; Golden corpus: defrecord generating accessor macros
+(defmodule defrecord-corpus
+  (export (make-person 0) (get-name 1) (set-age 2)))
+
+(defrecord person
+  name
+  (age 0)
+  email)
+
+(defun make-person ()
+  (make-person name "Alice" age 30 email "alice@example.com"))
+
+(defun get-name (p) (person-name p))
+
+(defun set-age (p new-age) (set-person-age p new-age))
