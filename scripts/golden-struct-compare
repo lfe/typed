@@ -1,0 +1,107 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%% Structural comparison of expanded forms.
+%%% Reads two EETF files (or one EETF + one golden text file) and compares
+%%% form-by-form as Erlang terms, ignoring print formatting and map ordering.
+%%% Usage: scripts/golden-struct-compare <oracle-golden.expanded> <rust-eetf-file>
+
+main([GoldenFile, RustEetfFile]) ->
+    setup_paths(),
+    OracleForms = read_golden_as_terms(GoldenFile),
+    RustForms = read_eetf_forms(RustEetfFile),
+    compare_forms(OracleForms, RustForms, 1, 0);
+main(_) ->
+    io:format(standard_error, "Usage: golden-struct-compare <golden.expanded> <rust.eetf>~n", []),
+    halt(2).
+
+read_golden_as_terms(File) ->
+    case lfe_io:read_file(File) of
+        {ok, Forms} -> Forms;
+        {error, Reason} ->
+            io:format(standard_error, "Failed to read golden ~s: ~p~n", [File, Reason]),
+            halt(1)
+    end.
+
+read_eetf_forms(File) ->
+    case file:read_file(File) of
+        {ok, Bin} ->
+            FormLinePairs = binary_to_term(Bin),
+            [Form || {Form, _Line} <- FormLinePairs];
+        {error, Reason} ->
+            io:format(standard_error, "Failed to read EETF ~s: ~p~n", [File, Reason]),
+            halt(1)
+    end.
+
+compare_forms([], [], _N, 0) ->
+    io:format("ALL FORMS MATCH~n"),
+    halt(0);
+compare_forms([], [], _N, Mismatches) ->
+    io:format("~p form(s) differ~n", [Mismatches]),
+    halt(1);
+compare_forms([], Rust, N, M) ->
+    io:format("Rust has ~p extra form(s) starting at position ~p~n", [length(Rust), N]),
+    halt(1);
+compare_forms(Oracle, [], N, M) ->
+    io:format("Oracle has ~p extra form(s) starting at position ~p~n", [length(Oracle), N]),
+    halt(1);
+compare_forms([O|Os], [R|Rs], N, Mismatches) ->
+    case terms_equal(O, R) of
+        true ->
+            compare_forms(Os, Rs, N+1, Mismatches);
+        false ->
+            io:format("Form ~p DIFFERS:~n  oracle: ~p~n  rust:   ~p~n~n", [N, O, R]),
+            compare_forms(Os, Rs, N+1, Mismatches+1)
+    end.
+
+terms_equal(A, B) when A =:= B -> true;
+%% (list N1 N2 ...) form ≡ charlist [N1,N2,...] when all are integers
+terms_equal([list|Codes], Str) when is_list(Str), Codes =/= [] ->
+    (try lists:all(fun erlang:is_integer/1, Codes) andalso
+         lists:all(fun erlang:is_integer/1, Str) andalso
+         Codes =:= Str
+     catch _:_ -> false end);
+terms_equal(Str, [list|Codes]) when is_list(Str), Codes =/= [] ->
+    terms_equal([list|Codes], Str);
+terms_equal(A, B) when is_list(A), is_list(B) ->
+    (is_map_form(A) andalso is_map_form(B) andalso map_forms_equal(A, B))
+    orelse
+    (length(A) =:= length(B) andalso
+     lists:all(fun({X,Y}) -> terms_equal(X,Y) end, lists:zip(A, B)));
+terms_equal(A, B) when is_tuple(A), is_tuple(B) ->
+    tuple_size(A) =:= tuple_size(B) andalso
+    terms_equal(tuple_to_list(A), tuple_to_list(B));
+terms_equal(A, B) when is_map(A), is_map(B) ->
+    maps:size(A) =:= maps:size(B) andalso
+    lists:all(fun(K) -> maps:is_key(K, B) andalso terms_equal(maps:get(K, A), maps:get(K, B)) end,
+              maps:keys(A));
+terms_equal(_, _) -> false.
+
+is_map_form([map|_]) -> true;
+is_map_form(_) -> false.
+
+map_forms_equal([map|KVs1], [map|KVs2]) ->
+    Pairs1 = kvs_to_pairs(KVs1),
+    Pairs2 = kvs_to_pairs(KVs2),
+    length(Pairs1) =:= length(Pairs2) andalso
+    lists:all(fun({K1,V1}) ->
+        case lists:keyfind(K1, 1, Pairs2) of
+            {K1, V2} -> terms_equal(V1, V2);
+            false ->
+                %% Try string/charlist equivalence for keys
+                case lists:filter(fun({K2,_}) -> terms_equal(K1,K2) end, Pairs2) of
+                    [{_,V2}|_] -> terms_equal(V1, V2);
+                    _ -> false
+                end
+        end
+    end, Pairs1);
+map_forms_equal(_, _) -> false.
+
+kvs_to_pairs([]) -> [];
+kvs_to_pairs([K,V|Rest]) -> [{K,V}|kvs_to_pairs(Rest)];
+kvs_to_pairs(_) -> [].
+
+setup_paths() ->
+    ScriptDir = filename:dirname(escript:script_name()),
+    ProjectRoot = filename:dirname(ScriptDir),
+    LfeEbin = filename:join([ProjectRoot, "_build", "default", "lib", "lfe", "ebin"]),
+    code:add_pathz(LfeEbin).

@@ -1,0 +1,10 @@
+;; Golden corpus: defrecord — TIER 1 ONLY (generation, not use)
+;; Tests defrecord LOWERING to define-record + accessor-macro family.
+;; Does NOT test macro USE (make-person etc.) — that's Tier-2 (lfe_eval).
+(defmodule defrecord-t1-corpus
+  (export))
+
+(defrecord person
+  name
+  (age 0)
+  email)

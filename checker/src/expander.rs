@@ -63,6 +63,12 @@ pub fn expand_form(form: &SExp) -> SExp {
         SExp::List(l) if l.elements.len() == 2 && is_backquote(&l.elements[0]) => {
             exp_backquote(&l.elements[1], 0)
         }
+        SExp::List(l)
+            if !l.elements.is_empty()
+                && matches!(&l.elements[0], SExp::Symbol(s) if s.value == "defmacro") =>
+        {
+            expand_core_form(form)
+        }
         SExp::List(l) => {
             let expanded: Vec<SExp> = l.elements.iter().map(expand_form).collect();
             let result = SExp::List(List::new(expanded, l.pos));
@@ -1026,13 +1032,16 @@ fn expand_defrecord_lfe(l: &List) -> SExp {
     }
 
     // fields-<rec> macro
-    let mut field_list = vec![sym("quote")];
     let field_syms: Vec<SExp> = field_names.iter().map(|n| sym(n)).collect();
-    field_list.push(SExp::List(List::new(field_syms, dp())));
+    let quoted_fields = SExp::List(List::new(
+        vec![sym("quote"), SExp::List(List::new(field_syms, dp()))],
+        dp(),
+    ));
+    let bq_fields = SExp::List(List::new(vec![sym("backquote"), quoted_fields], dp()));
     progn_elems.push(make_macro_clause(
         &format!("fields-{}", rec_name),
         vec![SExp::List(List::new(vec![sym("list")], dp())), sym("$ENV")],
-        SExp::List(List::new(field_list, dp())),
+        bq_fields,
     ));
 
     // size-<rec> macro
@@ -1326,7 +1335,7 @@ fn expand_defmacro(l: &List) -> SExp {
                 ];
                 let mut clause_elems = vec![SExp::List(List::new(arg_pattern, dp()))];
                 for body in &l.elements[3..] {
-                    clause_elems.push(expand_form(body));
+                    clause_elems.push(body.clone());
                 }
                 let clause = SExp::List(List::new(clause_elems, dp()));
                 return SExp::List(List::new(
@@ -1350,7 +1359,7 @@ fn expand_defmacro(l: &List) -> SExp {
                 clause_elems.push(SExp::List(List::new(args, dp())));
             }
             for body in clause.elements.iter().skip(1) {
-                clause_elems.push(expand_form(body));
+                clause_elems.push(body.clone());
             }
             clauses.push(SExp::List(List::new(clause_elems, dp())));
         } else {

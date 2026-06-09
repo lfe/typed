@@ -256,21 +256,27 @@ golden-generate:
 	@echo "$(GREEN)✓ Goldens generated$(RESET)"
 
 golden-rust-verify:
-	@echo "$(BLUE)Verifying Rust expander against oracle goldens...$(RESET)"
+	@echo "$(BLUE)Verifying Rust expander against Tier-1 oracle goldens (structural compare)...$(RESET)"
 	@fail=0; \
-	for f in test/golden/corpus/*.lfe.txt; do \
-		base=$$(basename "$$f" .lfe.txt); \
+	for base in backquote core-forms defrecord-t1 predef-macros-t1; do \
+		corpus="test/golden/corpus/$${base}.lfe.txt"; \
 		expected="test/golden/expected/$${base}.expanded"; \
 		tmpeetf="/tmp/typed_golden_$${base}.eetf"; \
-		$(CHECKER_DIR)/target/debug/typed-check "$$f" --expand-only --output "$$tmpeetf" 2>/dev/null; \
-		actual=$$(scripts/rust-expand-print "$$tmpeetf" 2>/dev/null); \
-		if [ "$$actual" = "$$(cat $$expected)" ]; then \
+		$(CHECKER_DIR)/target/debug/typed-check "$$corpus" --expand-only --output "$$tmpeetf" 2>/dev/null; \
+		result=$$(scripts/golden-struct-compare "$$expected" "$$tmpeetf" 2>/dev/null | grep -v "Warning\|%"); \
+		if echo "$$result" | grep -q "ALL FORMS MATCH"; then \
 			echo "  $(GREEN)✓$(RESET) $$base"; \
 		else \
-			echo "  $(YELLOW)~$(RESET) $$base (diff exists — check manually)"; \
+			echo "  $(RED)✗$(RESET) $$base"; \
+			echo "$$result" | head -5; \
+			fail=1; \
 		fi; \
-	done
-	@echo "$(GREEN)✓ Rust golden check complete$(RESET)"
+	done; \
+	if [ $$fail -eq 1 ]; then \
+		echo "$(RED)Tier-1 golden gate FAILED$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)✓ Tier-1 golden gate PASSED — all forms match$(RESET)"
 
 golden-verify:
 	@echo "$(BLUE)Verifying golden outputs against oracle...$(RESET)"

@@ -153,6 +153,112 @@ your .lfe  →  typed-check (Rust)        →       thin Erlang driver        �
 
 ---
 
+## Architecture
+
+`typed` is two cooperating pieces: a **Rust checker/compiler front-end** (`typed-check`)
+and a **thin Erlang driver** that hands off to LFE's own code generator. The Rust side
+owns everything up to "vanilla LFE forms"; the Erlang side turns those into BEAM.
+
+### The pipeline
+
+```
+ .lfet source
+     │
+     ▼  ┌──────────────────────────── typed-check (Rust) ────────────────────────────┐
+     │  │ 1. read     S-expression reader (line+column), adapted from oxur           │
+     │  │ 2. expand   Tier-1 macro expander (backquote, predef, def*, defrecord) —    │
+     │  │             a faithful port of lfe_macro, oracle-validated                  │
+     │  │ 3. check    bidirectional type checker over ADTs/records/contracts;         │
+     │  │             rejects bad programs with teaching diagnostics (human + JSON)   │
+     │  │ 4. lower    typed forms → vanilla LFE; insert always-on guards + validators;│
+     │  │             emit a `typed-registry` module attribute; stamp original lines  │
+     │  │ 5. encode   serialize the lowered forms to EETF (Erlang External Term Fmt)  │
+     │  └────────────────────────────────────┬───────────────────────────────────────┘
+     │                                        │  .eetf
+     ▼  ┌──────────────────── typed_driver (Erlang) ─────────┐
+        │ lfe_lint:module → lfe_codegen:module([{Form,Line}]) │
+        │ → compile:forms (original-source lines preserved)   │
+        └──────────────────────────┬──────────────────────────┘
+                                    ▼
+                              BEAM bytecode
+```
+
+`rebar3` integration is a provider (`typed_prv_check`) that globs `*.lfet`, runs the
+checker, and drives compilation; plain `*.lfe` files compile through the stock LFE
+compiler untouched, so typed and untyped modules coexist in one project.
+
+### Components
+
+**Rust (`checker/src/`)** — the front-end:
+
+- `sexp/` — the reader (lexer/parser/types), column-aware, adapted from oxur.
+- `expander.rs` — the Tier-1 macro expander (backquote + core-form recursion + the
+  static predef table + `def*` lowering + `defrecord`/`defstruct` generation), a
+  faithful port of `lfe_macro` validated against an Erlang **oracle** + golden corpus.
+- `adt.rs`, `type_env.rs` — ADT/record definitions, the type environment, and the
+  cross-module type registry (qualified `mod:type` resolution).
+- `typed_surface.rs` — parses the typed surface forms (`defun/typed`, `case/typed`, …).
+- `typecheck.rs` — the **bidirectional** checker (synthesize/check), function signatures,
+  contract/arg/field-value checking; `matching.rs` — exhaustiveness.
+- `guards.rs`, `validators.rs` — always-on head guards (shallow) and deep
+  validators/`decode` (the typed↔untyped membrane).
+- `diagnostic.rs` — the diagnostic engine (span+caret, human and JSON renderers).
+- `lower.rs`, `eetf.rs` — lowering to vanilla LFE (+ the registry attribute) and EETF
+  serialization for the handoff.
+
+**Erlang (`src/`)** — the back-end glue:
+
+- `typed_driver.erl` — reads the EETF, runs `lfe_lint` + `lfe_codegen` + `compile:forms`.
+- `typed_prv_check.erl` — the `rebar3 typed check` provider.
+- `typed_rt.erl` — hand-written runtime support (e.g. `render-type-error`).
+
+---
+
+## Design decisions
+
+The big-picture decisions, each with the road not taken. Full reasoning lives in
+[`docs/design/`](docs/design) and the per-milestone ledgers.
+
+- **Library + build step, not a fork.** You keep writing LFE and opt into typed forms;
+  output is ordinary BEAM. *Considered & rejected:* a separate language (loses interop
+  and familiarity — the adoption killer for typed BEAM languages).
+- **"Model Y" — the checker owns the compile chain, written in Rust.** Like Gleam.
+  Gives speed, first-class diagnostics, column-accurate positions, and a typed
+  implementation language. *Considered & rejected:* an LFE-hosted checker / self-hosting
+  in typed LFE (chicken-and-egg, and weaker diagnostics/positions).
+- **Gradual typing.** Typed forms are opt-in; untyped LFE flows alongside through an
+  explicit `dynamic` boundary. A `dynamic → T` crossing is only allowed via a checked
+  `decode`, never a bare assertion.
+- **Bidirectional checking, not global inference.** Synthesize where types are known,
+  check against expected types elsewhere. *Considered & rejected:* whole-program
+  Hindley-Milner (heavier, worse error locality, poor fit with gradual + BEAM interop).
+- **Checked at compile time AND enforced at runtime.** Static checking catches errors in
+  code the checker sees; **always-on guards** + **deep validators** catch bad data
+  crossing in from the untyped world (HTTP/JSON/messages/ETS). Runtime violations become
+  clean, localized crashes — BEAM "let it crash," not silent corruption.
+- **Pluggable representation backends.** `native-record` (OTP 29+), `tagged-tuple`
+  (portable default), `enum` (all-nullary sums), `transparent` (zero-cost newtype) —
+  one surface, proven equivalent by a cross-backend test matrix.
+- **Diagnostics are a first-class product.** Structured, teaching-grade errors with
+  span+caret, in human and JSON form — designed to be equally legible to people and LLMs.
+- **Faithful Tier-1 macro expander in Rust, oracle-validated.** The driver runs no
+  `lfe_macro`, so the checker must expand macros itself; rather than reimplement
+  backquote ad-hoc (which bit us twice), the expander is a faithful port graded against
+  an Erlang oracle + golden corpus. *Boundary:* eval-time user macros and `.hrl`/QLC
+  (Tier 2/3) are out of scope, delegated to the oracle/BEAM. Expansion stays in Rust to
+  **preserve source positions** (the reason for Model Y in the first place).
+- **EETF handoff.** Rust → Erlang via the Erlang External Term Format — the lowered
+  forms are real Erlang terms `lfe_codegen` already understands.
+- **Distinct file extension `.lfet`.** Typed source is genuinely a non-LFE format (the
+  typed forms aren't stock-LFE-compilable), so it gets its own extension — honest, and
+  it keeps the stock LFE compiler from choking on typed files. *Future:* `.lfe` only once
+  the LFE compiler itself can dispatch to `typed-check`.
+- **One naming convention: `<lfe-form>/typed`.** `defun/typed`, `case/typed`,
+  `deftype/typed`, … — typed variants are visibly marked and never shadow their LFE
+  namesakes. (`import-types` is the documented exception — it shadows nothing.)
+
+---
+
 ## Project design & provenance
 
 This project was planned before it was built. The reasoning is all in the open:
@@ -180,9 +286,7 @@ This project was planned before it was built. The reasoning is all in the open:
 - **M9 — Reader correctness** ✅ *(char, tuple, binary, quasiquote/unquote, cons dot; all 5 dirs files parse)*
 - **M9.1 — Expander oracle + corpus** ✅ *(oracle escript, golden corpus for all Tier-1 categories, harness, conventions)*
 - **M9.2 — Faithful backquote port** ✅ *(Rust exp_backquote, core-form recursion, run over all forms, qq_expand retired)*
-- **M9.3 — Predef + def\* lowering** 🚧 *(defun/defmodule/defmacro/cond lowering, plain defun compile+run proven)*
-- **M9 — Reader correctness** *(full LFE reader forms in the sexp reader: tuple `#(…)`, binary `#"…"`, char `#\c`, quasiquote/unquote `` ` `` `,` `,@`)*
-- **M9.1–M9.3 — Faithful macro expander (Tier 1)** *(Erlang oracle + golden corpus; port backquote + core-form recursion + static predef macros + defrecord/defstruct to Rust, oracle-validated — the pipeline runs no `lfe_macro`, so real LFE needs this)*
+- **M9.3 — Predef + validation gate** ✅ *(full Tier-1 predef table + defrecord + gensyms; 4/4 goldens GREEN via structural compare)*
 - **M10 — Naming convention** *(`deftype` → `deftype/typed`; formalize the `<lfe-form>/typed` convention across all typed macros)*
 - **M11 — Surface features** *(multi-clause `defun/typed` heads, `when` guards in clauses/patterns — the surface needed to type real LFE)*
 - **M12 — Real-world port** *(port an existing module — [lfex/dirs](https://github.com/lfex/dirs) — to typed, reality-grading the design)*
