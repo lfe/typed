@@ -8,7 +8,7 @@
 (defmodule bad_ctor
   (export (try-it 0)))
 
-(deftype colour
+(deftype/typed colour
   (repr enum)
   (Red) (Green) (Blue))
 

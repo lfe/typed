@@ -250,7 +250,7 @@ fn collect_lfet_recursive(dir: &Path, files: &mut Vec<PathBuf>) {
 fn is_deftype(form: &SExp) -> bool {
     matches!(form, SExp::List(l)
         if !l.elements.is_empty()
-            && matches!(&l.elements[0], SExp::Symbol(s) if s.value == "deftype"))
+            && matches!(&l.elements[0], SExp::Symbol(s) if s.value == "deftype/typed"))
 }
 
 fn is_defrecord_typed(form: &SExp) -> bool {

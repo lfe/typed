@@ -10,7 +10,7 @@
 (defmodule roles
   (export (make-super 1) (make-regular 0)))
 
-(deftype role
+(deftype/typed role
   (repr tagged-tuple)
   (SuperUser (level integer))
   (RegularUser))

@@ -6,7 +6,7 @@
 (defmodule orders_bad_return
   (export (line-total 2)))
 
-(deftype order-status
+(deftype/typed order-status
   (repr tagged-tuple)
   (Pending))
 

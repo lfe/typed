@@ -8,7 +8,7 @@
 (defmodule transparent_match
   (export (unwrap-id 1)))
 
-(deftype customer-id
+(deftype/typed customer-id
   (repr transparent)
   (CustomerId (v integer)))
 

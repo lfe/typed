@@ -12,7 +12,7 @@
           (validate-order-status 2)))
 
 ;; Order status — a sum type with mixed nullary + with-fields constructors
-(deftype order-status
+(deftype/typed order-status
   (repr tagged-tuple)
   (Pending)
   (Processing (worker-id integer))

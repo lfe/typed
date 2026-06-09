@@ -77,7 +77,7 @@ pub fn extract_deftype(form: &SExp) -> Result<AdtDef, CheckError> {
         _ => {
             return Err(diagnostic(
                 form.position(),
-                "expected a list form for deftype",
+                "expected a list form for deftype/typed",
             ))
         }
     };
@@ -86,13 +86,13 @@ pub fn extract_deftype(form: &SExp) -> Result<AdtDef, CheckError> {
     if elems.len() < 3 {
         return Err(diagnostic(
             list.pos,
-            "deftype requires at least a name/params and one constructor",
+            "deftype/typed requires at least a name/params and one constructor",
         ));
     }
 
     match &elems[0] {
-        SExp::Symbol(s) if s.value == "deftype" => {}
-        _ => return Err(diagnostic(elems[0].position(), "expected deftype")),
+        SExp::Symbol(s) if s.value == "deftype/typed" => {}
+        _ => return Err(diagnostic(elems[0].position(), "expected deftype/typed")),
     }
 
     let (name, type_params) = parse_type_header(&elems[1])?;
@@ -126,7 +126,7 @@ pub fn extract_deftype(form: &SExp) -> Result<AdtDef, CheckError> {
     if constructors.is_empty() {
         return Err(diagnostic(
             list.pos,
-            "deftype requires at least one constructor",
+            "deftype/typed requires at least one constructor",
         ));
     }
 

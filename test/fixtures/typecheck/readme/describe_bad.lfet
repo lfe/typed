@@ -8,7 +8,7 @@
 (defmodule describe_bad
   (export (describe 1)))
 
-(deftype order-status
+(deftype/typed order-status
   (repr tagged-tuple)
   (Pending)
   (Shipped (tracking string))

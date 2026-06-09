@@ -46,15 +46,15 @@ Declaring algebraic data types — sums of products, with **named fields** and t
 parameters:
 
 ```lisp
-(deftype (result ok err)
+(deftype/typed (result ok err)
   (Ok    (value  ok))
   (Error (reason err)))
 
-(deftype (option a)
+(deftype/typed (option a)
   (Some (value a))
   (None))
 
-(deftype order-status
+(deftype/typed order-status
   (Pending)
   (Shipped   (tracking string))
   (Cancelled (reason   string)))
@@ -288,7 +288,7 @@ This project was planned before it was built. The reasoning is all in the open:
 - **M9.1 — Expander oracle + corpus** ✅ *(oracle escript, golden corpus for all Tier-1 categories, harness, conventions)*
 - **M9.2 — Faithful backquote port** ✅ *(Rust exp_backquote, core-form recursion, run over all forms, qq_expand retired)*
 - **M9.3 — Predef + validation gate** ✅ *(full Tier-1 predef table + defrecord + gensyms; 4/4 goldens GREEN via structural compare)*
-- **M10 — Naming convention** *(`deftype` → `deftype/typed`; formalize the `<lfe-form>/typed` convention across all typed macros)*
+- **M10 — Naming convention** ✅ *(`deftype` → `deftype/typed`; `<lfe-form>/typed` convention formalized)*
 - **M11 — Surface features** *(multi-clause `defun/typed` heads, `when` guards in clauses/patterns — the surface needed to type real LFE)*
 - **M12 — Real-world port** *(port an existing module — [lfex/dirs](https://github.com/lfex/dirs) — to typed, reality-grading the design)*
 

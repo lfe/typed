@@ -10,7 +10,7 @@
 (defmodule adt_boom
   (export (explode 0)))
 
-(deftype (wrapper t)
+(deftype/typed (wrapper t)
   (repr tagged-tuple)
   (Wrap (val t)))
 

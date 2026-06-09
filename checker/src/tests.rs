@@ -154,7 +154,7 @@ fn f6_eetf_encodes() {
 
 #[test]
 fn m1_1_parse_parametric_deftype() {
-    let input = r#"(deftype (result ok err)
+    let input = r#"(deftype/typed (result ok err)
   (Ok    (value ok))
   (Error (reason err)))"#;
     let form = Parser::parse_str(input).unwrap();
@@ -177,7 +177,7 @@ fn m1_1_parse_parametric_deftype() {
 
 #[test]
 fn m1_1_parse_nullary_deftype() {
-    let input = "(deftype colour (Red) (Green) (Blue))";
+    let input = "(deftype/typed colour (Red) (Green) (Blue))";
     let form = Parser::parse_str(input).unwrap();
     let adt_def = adt::extract_deftype(&form).unwrap();
 
@@ -192,7 +192,7 @@ fn m1_1_parse_nullary_deftype() {
 
 #[test]
 fn m1_1_parse_newtype_deftype() {
-    let input = "(deftype customer-id (CustomerId (v integer)))";
+    let input = "(deftype/typed customer-id (CustomerId (v integer)))";
     let form = Parser::parse_str(input).unwrap();
     let adt_def = adt::extract_deftype(&form).unwrap();
 
@@ -204,7 +204,7 @@ fn m1_1_parse_newtype_deftype() {
 
 #[test]
 fn m1_1_parse_deftype_with_repr() {
-    let input = r#"(deftype (result ok err)
+    let input = r#"(deftype/typed (result ok err)
   (repr tagged-tuple)
   (Ok    (value ok))
   (Error (reason err)))"#;
@@ -221,8 +221,8 @@ fn m1_1_parse_deftype_with_repr() {
 
 #[test]
 fn m1_2_type_env_register_and_lookup() {
-    let input1 = "(deftype colour (Red) (Green) (Blue))";
-    let input2 = r#"(deftype (result ok err) (Ok (value ok)) (Error (reason err)))"#;
+    let input1 = "(deftype/typed colour (Red) (Green) (Blue))";
+    let input2 = r#"(deftype/typed (result ok err) (Ok (value ok)) (Error (reason err)))"#;
 
     let adt1 = adt::extract_deftype(&Parser::parse_str(input1).unwrap()).unwrap();
     let adt2 = adt::extract_deftype(&Parser::parse_str(input2).unwrap()).unwrap();
@@ -279,7 +279,7 @@ fn m1_3_parse_nullary_construction() {
 
 #[test]
 fn m1_4_unknown_constructor() {
-    let adt_input = r#"(deftype (result ok err) (Ok (value ok)) (Error (reason err)))"#;
+    let adt_input = r#"(deftype/typed (result ok err) (Ok (value ok)) (Error (reason err)))"#;
     let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
 
     let cons = adt::Construction {
@@ -300,7 +300,7 @@ fn m1_4_unknown_constructor() {
 
 #[test]
 fn m1_4_unknown_field() {
-    let adt_input = r#"(deftype (result ok err) (Ok (value ok)) (Error (reason err)))"#;
+    let adt_input = r#"(deftype/typed (result ok err) (Ok (value ok)) (Error (reason err)))"#;
     let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
 
     let cons = adt::Construction {
@@ -324,7 +324,7 @@ fn m1_4_unknown_field() {
 
 #[test]
 fn m1_4_missing_field() {
-    let adt_input = r#"(deftype (result ok err) (Ok (value ok)) (Error (reason err)))"#;
+    let adt_input = r#"(deftype/typed (result ok err) (Ok (value ok)) (Error (reason err)))"#;
     let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
 
     let cons = adt::Construction {
@@ -347,7 +347,7 @@ fn m1_4_missing_field() {
 
 #[test]
 fn m1_4_wrong_arity() {
-    let adt_input = r#"(deftype (result ok err) (Ok (value ok)) (Error (reason err)))"#;
+    let adt_input = r#"(deftype/typed (result ok err) (Ok (value ok)) (Error (reason err)))"#;
     let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
 
     let dp = crate::error::Position::new(0, 1, 1);
@@ -387,8 +387,7 @@ fn m1_5_snake_case_helper() {
 
 #[test]
 fn m1_5_lower_tagged_tuple() {
-    let adt_input =
-        r#"(deftype (result ok err) (repr tagged-tuple) (Ok (value ok)) (Error (reason err)))"#;
+    let adt_input = r#"(deftype/typed (result ok err) (repr tagged-tuple) (Ok (value ok)) (Error (reason err)))"#;
     let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
     let ctor_def = adt_def.find_ctor("Ok").unwrap();
     let dp = crate::error::Position::new(0, 1, 1);
@@ -417,7 +416,8 @@ fn m1_5_lower_tagged_tuple() {
 
 #[test]
 fn m1_5_lower_tagged_tuple_multi_word() {
-    let adt_input = r#"(deftype role (repr tagged-tuple) (SuperUser (level integer)) (Guest))"#;
+    let adt_input =
+        r#"(deftype/typed role (repr tagged-tuple) (SuperUser (level integer)) (Guest))"#;
     let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
     let ctor_def = adt_def.find_ctor("SuperUser").unwrap();
     let dp = crate::error::Position::new(0, 1, 1);
@@ -449,7 +449,7 @@ fn m1_5_lower_tagged_tuple_multi_word() {
 
 #[test]
 fn m1_6_lower_enum() {
-    let adt_input = "(deftype colour (repr enum) (Red) (Green) (Blue))";
+    let adt_input = "(deftype/typed colour (repr enum) (Red) (Green) (Blue))";
     let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
     let ctor_def = adt_def.find_ctor("Red").unwrap();
     let dp = crate::error::Position::new(0, 1, 1);
@@ -472,7 +472,7 @@ fn m1_6_lower_enum() {
 
 #[test]
 fn m1_7_lower_transparent() {
-    let adt_input = "(deftype customer-id (repr transparent) (CustomerId (v integer)))";
+    let adt_input = "(deftype/typed customer-id (repr transparent) (CustomerId (v integer)))";
     let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
     let ctor_def = adt_def.find_ctor("CustomerId").unwrap();
     let dp = crate::error::Position::new(0, 1, 1);
@@ -491,15 +491,15 @@ fn m1_7_lower_transparent() {
 
 #[test]
 fn m1_9_default_repr_resolution() {
-    let nullary_input = "(deftype colour (Red) (Green) (Blue))";
+    let nullary_input = "(deftype/typed colour (Red) (Green) (Blue))";
     let nullary = adt::extract_deftype(&Parser::parse_str(nullary_input).unwrap()).unwrap();
     assert_eq!(nullary.effective_repr(28), adt::ReprKind::Enum);
 
-    let newtype_input = "(deftype customer-id (CustomerId (v integer)))";
+    let newtype_input = "(deftype/typed customer-id (CustomerId (v integer)))";
     let newtype = adt::extract_deftype(&Parser::parse_str(newtype_input).unwrap()).unwrap();
     assert_eq!(newtype.effective_repr(28), adt::ReprKind::Transparent);
 
-    let sum_input = r#"(deftype (result ok err) (Ok (value ok)) (Error (reason err)))"#;
+    let sum_input = r#"(deftype/typed (result ok err) (Ok (value ok)) (Error (reason err)))"#;
     let sum = adt::extract_deftype(&Parser::parse_str(sum_input).unwrap()).unwrap();
     assert_eq!(sum.effective_repr(28), adt::ReprKind::TaggedTuple);
     assert_eq!(sum.effective_repr(29), adt::ReprKind::NativeRecord);
@@ -548,7 +548,7 @@ fn m2_1_parse_explicit_type_annotation() {
 
 #[test]
 fn m2_3_exhaustiveness_rejects_missing() {
-    let adt_input = r#"(deftype (result ok err) (Ok (value ok)) (Error (reason err)))"#;
+    let adt_input = r#"(deftype/typed (result ok err) (Ok (value ok)) (Error (reason err)))"#;
     let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
 
     let match_input = r#"(case/typed x
@@ -571,7 +571,7 @@ fn m2_3_exhaustiveness_rejects_missing() {
 
 #[test]
 fn m2_3_exhaustiveness_accepts_complete() {
-    let adt_input = r#"(deftype (result ok err) (Ok (value ok)) (Error (reason err)))"#;
+    let adt_input = r#"(deftype/typed (result ok err) (Ok (value ok)) (Error (reason err)))"#;
     let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
 
     let match_input = r#"(case/typed x
@@ -586,7 +586,7 @@ fn m2_3_exhaustiveness_accepts_complete() {
 
 #[test]
 fn m2_3_exhaustiveness_accepts_wildcard() {
-    let adt_input = r#"(deftype (result ok err) (Ok (value ok)) (Error (reason err)))"#;
+    let adt_input = r#"(deftype/typed (result ok err) (Ok (value ok)) (Error (reason err)))"#;
     let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
 
     let match_input = r#"(case/typed x
@@ -601,7 +601,7 @@ fn m2_3_exhaustiveness_accepts_wildcard() {
 
 #[test]
 fn m2_3_exhaustiveness_missing_multiple() {
-    let adt_input = "(deftype status (Pending) (Shipped) (Delivered) (Cancelled))";
+    let adt_input = "(deftype/typed status (Pending) (Shipped) (Delivered) (Cancelled))";
     let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
 
     let match_input = r#"(case/typed s
@@ -621,7 +621,7 @@ fn m2_3_exhaustiveness_missing_multiple() {
 
 #[test]
 fn m2_4_pattern_unknown_ctor() {
-    let adt_input = r#"(deftype (result ok err) (Ok (value ok)) (Error (reason err)))"#;
+    let adt_input = r#"(deftype/typed (result ok err) (Ok (value ok)) (Error (reason err)))"#;
     let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
 
     let match_input = r#"(case/typed x
@@ -645,7 +645,7 @@ fn m2_4_pattern_unknown_ctor() {
 
 #[test]
 fn m2_4_pattern_wrong_arity() {
-    let adt_input = r#"(deftype (result ok err) (Ok (value ok)) (Error (reason err)))"#;
+    let adt_input = r#"(deftype/typed (result ok err) (Ok (value ok)) (Error (reason err)))"#;
     let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
 
     let match_input = r#"(case/typed x
@@ -666,8 +666,7 @@ fn m2_4_pattern_wrong_arity() {
 
 #[test]
 fn m2_8_lower_case_tagged_tuple() {
-    let adt_input =
-        r#"(deftype (result ok err) (repr tagged-tuple) (Ok (value ok)) (Error (reason err)))"#;
+    let adt_input = r#"(deftype/typed (result ok err) (repr tagged-tuple) (Ok (value ok)) (Error (reason err)))"#;
     let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
 
     let match_input = r#"(case/typed x
@@ -800,7 +799,7 @@ fn m2_11_snapshot_non_exhaustive_json() {
 
 #[test]
 fn m2_9_lower_case_enum() {
-    let adt_input = "(deftype colour (repr enum) (Red) (Green) (Blue))";
+    let adt_input = "(deftype/typed colour (repr enum) (Red) (Green) (Blue))";
     let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
 
     let match_input = r#"(case/typed c
@@ -836,7 +835,7 @@ fn m2_9_lower_case_enum() {
 
 #[test]
 fn m2_9_lower_case_transparent() {
-    let adt_input = "(deftype customer-id (repr transparent) (CustomerId (v integer)))";
+    let adt_input = "(deftype/typed customer-id (repr transparent) (CustomerId (v integer)))";
     let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
 
     let match_input = r#"(case/typed id
@@ -1165,7 +1164,7 @@ fn m3_10_snapshot_wrong_arity() {
 
 #[test]
 fn m3_10_snapshot_field_value_mismatch() {
-    let adt_input = r#"(deftype (box t) (repr tagged-tuple) (Box (val integer)))"#;
+    let adt_input = r#"(deftype/typed (box t) (repr tagged-tuple) (Box (val integer)))"#;
     let adt_def = adt::extract_deftype(&Parser::parse_str(adt_input).unwrap()).unwrap();
     let env = crate::typecheck::BodyEnv::new();
     let tenv = TypeEnv::new();
@@ -1631,6 +1630,32 @@ fn r7_unknown_field_accessor_diagnostic() {
 }
 
 // ============================================================
+// M10 tests — Naming Convention
+// ============================================================
+
+#[test]
+fn n1_deftype_typed_recognized() {
+    let input = r#"(deftype/typed (result ok err)
+  (Ok    (value ok))
+  (Error (reason err)))"#;
+    let form = Parser::parse_str(input).unwrap();
+    let adt = adt::extract_deftype(&form).unwrap();
+    assert_eq!(adt.name, "result");
+    assert_eq!(adt.constructors.len(), 2);
+}
+
+#[test]
+fn n2_bare_deftype_not_typed() {
+    let input = "(deftype my-type () (union (integer) (atom)))";
+    let form = Parser::parse_str(input).unwrap();
+    let result = adt::extract_deftype(&form);
+    assert!(
+        result.is_err(),
+        "bare (deftype ...) should NOT be recognized as a typed ADT"
+    );
+}
+
+// ============================================================
 // M7 tests — Cross-Module Type References
 // ============================================================
 
@@ -1671,7 +1696,7 @@ fn x1_roundtrip_record() {
 
 #[test]
 fn x1_roundtrip_parametric() {
-    let input = r#"(deftype (result ok err)
+    let input = r#"(deftype/typed (result ok err)
   (repr tagged-tuple)
   (Ok    (value ok))
   (Error (reason err)))"#;
@@ -1699,7 +1724,7 @@ fn x1_roundtrip_parametric() {
 
 #[test]
 fn x1_roundtrip_enum() {
-    let input = "(deftype colour (repr enum) (Red) (Green) (Blue))";
+    let input = "(deftype/typed colour (repr enum) (Red) (Green) (Blue))";
     let form = Parser::parse_str(input).unwrap();
     let original = adt::extract_deftype(&form).unwrap();
 

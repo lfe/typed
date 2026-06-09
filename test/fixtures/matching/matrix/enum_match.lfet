@@ -8,7 +8,7 @@
 (defmodule enum_match
   (export (colour-code 1)))
 
-(deftype colour
+(deftype/typed colour
   (repr enum)
   (Red) (Green) (Blue))
 

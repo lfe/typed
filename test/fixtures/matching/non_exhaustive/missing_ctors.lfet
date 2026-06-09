@@ -8,7 +8,7 @@
 (defmodule missing_ctors
   (export (handle 1)))
 
-(deftype (response ok err)
+(deftype/typed (response ok err)
   (repr tagged-tuple)
   (Ok      (value ok))
   (Error   (reason err))

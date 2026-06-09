@@ -31,7 +31,7 @@ Typed LFE files use the `.lfet` extension. A typed module looks like this:
           (validate-order-status 2)))
 
 ;; Define an algebraic data type
-(deftype order-status
+(deftype/typed order-status
   (repr tagged-tuple)
   (Pending)
   (Shipped (tracking string))
@@ -49,20 +49,40 @@ Typed LFE files use the `.lfet` extension. A typed module looks like this:
 
 ### Key forms
 
-- **`deftype`** declares an algebraic data type with named-field constructors.
+- **`deftype/typed`** declares an algebraic data type with named-field constructors.
   Optional `(repr <backend>)` clause selects the runtime representation.
 - **`defun/typed`** declares a function with a type contract (`:args`, `:returns`,
   `:body`). The checker verifies the body against the contract.
+- **`defrecord/typed`** declares a typed record with generated constructor, accessors,
+  and functional updaters.
 - **`case/typed`** is exhaustive pattern matching over an ADT. The checker rejects
   non-exhaustive matches, naming every missing constructor.
+- **`import-types`** imports types from another module for bare-name use.
 - **Constructor calls** like `(Shipped :tracking "TRK123")` construct ADT values.
+
+### Naming convention: `<lfe-form>/typed`
+
+All typed forms follow the convention `<lfe-form>/typed` — appending `/typed` to the
+corresponding LFE form name. This keeps typed forms visually distinct and avoids
+shadowing LFE's own forms:
+
+| Typed form | LFE form it extends | Purpose |
+|------------|-------------------|---------|
+| `deftype/typed` | `deftype` (type specs) | Algebraic data types |
+| `defun/typed` | `defun` | Typed function contracts |
+| `defrecord/typed` | `defrecord` | Typed records |
+| `case/typed` | `case` | Exhaustive pattern matching |
+| `import-types` | *(no LFE form)* | Cross-module type imports (exception) |
+
+Bare `deftype`, `defun`, `defrecord`, and `case` remain plain LFE — not processed by
+the type checker.
 
 ### Type annotations
 
 Types in `:args` and `:returns` can be:
 - **Built-in:** `integer`, `float`, `number`, `atom`, `boolean`, `binary`, `string`,
   `list`, `map`, `dynamic`
-- **ADT names:** any `deftype`-declared type (e.g. `order-status`)
+- **ADT names:** any `deftype/typed`-declared type (e.g. `order-status`)
 
 ### Representation backends
 
@@ -75,7 +95,7 @@ Types in `:args` and `:returns` can be:
 
 ### Generated functions
 
-For each `deftype`, the checker generates:
+For each `deftype/typed`, the checker generates:
 - `validate-<typename>/2` — deep recursive validator
 - `decode-<typename>/1` — graceful `dynamic → T` boundary
 

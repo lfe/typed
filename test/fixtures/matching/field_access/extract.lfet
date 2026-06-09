@@ -8,7 +8,7 @@
 (defmodule extract
   (export (get-value 1)))
 
-(deftype (wrapper t)
+(deftype/typed (wrapper t)
   (repr tagged-tuple)
   (Wrap (val t)))
 

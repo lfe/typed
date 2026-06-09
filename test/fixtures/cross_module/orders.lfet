@@ -5,7 +5,7 @@
           (set-order-id 2) (set-order-status 2) (set-order-total 2)
           (validate-order 2) (decode-order 1)))
 
-(deftype order-status
+(deftype/typed order-status
   (repr tagged-tuple)
   (Pending)
   (Shipped (tracking string))

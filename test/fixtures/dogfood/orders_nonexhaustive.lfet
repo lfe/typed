@@ -6,7 +6,7 @@
 (defmodule orders_nonexhaustive
   (export (status-label 1)))
 
-(deftype order-status
+(deftype/typed order-status
   (repr tagged-tuple)
   (Pending)
   (Processing (worker-id integer))

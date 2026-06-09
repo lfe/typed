@@ -15,7 +15,7 @@
 (defmodule shapes
   (export (make-ok 1)))
 
-(deftype (result ok err)
+(deftype/typed (result ok err)
   (repr tagged-tuple)
   (Ok    (value ok))
   (Error (reason err)))

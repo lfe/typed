@@ -10,7 +10,7 @@
 (defmodule colours
   (export (get-red 0)))
 
-(deftype colour
+(deftype/typed colour
   (repr enum)
   (Red) (Green) (Blue))
 

@@ -731,7 +731,7 @@ fn is_defrecord_typed(form: &sexp::types::SExp) -> bool {
 fn is_deftype(form: &sexp::types::SExp) -> bool {
     matches!(form, sexp::types::SExp::List(l)
         if !l.elements.is_empty()
-            && matches!(&l.elements[0], sexp::types::SExp::Symbol(s) if s.value == "deftype"))
+            && matches!(&l.elements[0], sexp::types::SExp::Symbol(s) if s.value == "deftype/typed"))
 }
 
 fn is_defun_typed(form: &sexp::types::SExp) -> bool {
