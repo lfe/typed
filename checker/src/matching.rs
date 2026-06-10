@@ -13,6 +13,7 @@ pub struct TypedMatch {
 #[derive(Debug, Clone)]
 pub struct MatchClause {
     pub pattern: Pattern,
+    pub when_guard: Option<SExp>,
     pub body: Vec<SExp>,
     pub pos: Position,
 }
@@ -105,10 +106,35 @@ fn parse_clause(form: &SExp) -> Result<MatchClause, CheckError> {
     }
 
     let pattern = parse_pattern(&list.elements[0])?;
-    let body = list.elements[1..].to_vec();
+
+    let (when_guard, body) = if list.elements.len() >= 3 {
+        if let SExp::List(when_list) = &list.elements[1] {
+            if !when_list.elements.is_empty() {
+                if let SExp::Symbol(s) = &when_list.elements[0] {
+                    if s.value == "when" && when_list.elements.len() >= 2 {
+                        (
+                            Some(when_list.elements[1].clone()),
+                            list.elements[2..].to_vec(),
+                        )
+                    } else {
+                        (None, list.elements[1..].to_vec())
+                    }
+                } else {
+                    (None, list.elements[1..].to_vec())
+                }
+            } else {
+                (None, list.elements[1..].to_vec())
+            }
+        } else {
+            (None, list.elements[1..].to_vec())
+        }
+    } else {
+        (None, list.elements[1..].to_vec())
+    };
 
     Ok(MatchClause {
         pattern,
+        when_guard,
         body,
         pos: list.pos,
     })

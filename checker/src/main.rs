@@ -282,6 +282,25 @@ fn main() {
                         had_error = true;
                     }
 
+                    // SF-4: Check shared-return for multi-clause
+                    if tf.clauses.len() > 1 {
+                        let first_ret = &tf.clauses[0].returns;
+                        for (i, clause) in tf.clauses.iter().enumerate().skip(1) {
+                            if clause.returns != *first_ret {
+                                let e = error::CheckError::Diagnostic {
+                                    file: source_name.to_string(),
+                                    pos: tf.pos,
+                                    message: format!(
+                                        "heterogeneous-return overloading not yet supported: clause {} returns `{}`, but clause 1 returns `{}`",
+                                        i + 1, clause.returns, first_ret
+                                    ),
+                                };
+                                eprintln!("{}", e);
+                                had_error = true;
+                            }
+                        }
+                    }
+
                     // Type-check the body against the contract
                     let mut body_env = typecheck::BodyEnv::new();
                     for (arg_name, arg_type) in &tf.args {

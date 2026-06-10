@@ -24,6 +24,12 @@ fn lower_clause(clause: &MatchClause, adt: &AdtDef, repr: &ReprKind) -> SExp {
     let body: Vec<SExp> = clause.body.iter().map(strip_pos).collect();
 
     let mut clause_elems = vec![pattern];
+    if let Some(guard) = &clause.when_guard {
+        clause_elems.push(SExp::List(List::new(
+            vec![sym("when"), strip_pos(guard)],
+            dp(),
+        )));
+    }
     clause_elems.extend(body);
     SExp::List(List::new(clause_elems, dp()))
 }

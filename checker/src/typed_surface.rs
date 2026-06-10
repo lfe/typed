@@ -109,12 +109,12 @@ pub fn extract_typed_fun(form: &SExp) -> Result<TypedFun, CheckError> {
         }
     }
 
-    if elems.len() < 5 {
+    if elems.len() < 3 {
         return Err(CheckError::Diagnostic {
             file: String::new(),
             pos: list.pos,
             message: format!(
-                "defun/typed requires name, :args, :returns, and :body sections (got {} elements)",
+                "defun/typed requires a name and at least one clause or :args section (got {} elements)",
                 elems.len() - 1
             ),
         });

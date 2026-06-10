@@ -1,0 +1,6 @@
+(defmodule bad_hetero_return
+  (export (f 1)))
+
+(defun/typed f
+  ((:args ((n integer))) (:returns integer) (:body n))
+  ((:args ((s string)))  (:returns string)  (:body s)))

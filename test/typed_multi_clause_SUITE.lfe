@@ -20,12 +20,15 @@
    ;; SF-8: Type dispatch
    (sf8_type_dispatch 1)
    ;; SF-5: Wrong-typed arg rejected
-   (sf5_wrong_type_rejected 1)))
+   (sf5_wrong_type_rejected 1)
+   ;; SF-4: Heterogeneous-return diagnostic
+   (sf4_hetero_return_rejected 1)))
 
 (defun all ()
   '(sf8_ackermann
     sf8_type_dispatch
-    sf5_wrong_type_rejected))
+    sf5_wrong_type_rejected
+    sf4_hetero_return_rejected))
 
 (defun suite () `(#(timetrap #(seconds 60))))
 
@@ -93,6 +96,22 @@
            (other (ct:fail `#(wrong_expected ,other ,err-map)))))))))
 
 ;;; ============================================================
+;;; SF-4: Heterogeneous return types → teaching diagnostic
+;;; ============================================================
+
+(defun sf4_hetero_return_rejected (config)
+  (let* ((checker-bin (proplists:get_value 'checker_bin config))
+         (fixture-dir (proplists:get_value 'fixture_dir config))
+         (fixture (filename:join (list fixture-dir "multi_clause" "bad_hetero_return.lfet")))
+         (`#(,exit-code ,output) (run-checker-raw checker-bin fixture)))
+    (case exit-code
+      (0 (ct:fail '#(expected_nonzero_exit)))
+      (_
+       (case (string:find output "heterogeneous-return overloading not yet supported")
+         ('nomatch (ct:fail `#(wrong_diagnostic ,output)))
+         (_ 'ok))))))
+
+;;; ============================================================
 ;;; Helpers
 ;;; ============================================================
 
@@ -125,6 +144,20 @@
   (let* ((cmd (lists:flatten
                (io_lib:format "\"~s\" \"~s\" --output \"~s\" 2>&1; echo \"EXIT:$?\""
                               (list checker-bin input-file output-file))))
+         (raw-output (os:cmd cmd))
+         (lines (string:split (string:trim raw-output) "\n" 'all))
+         (last-line (lists:last lines)))
+    (case (string:prefix last-line "EXIT:")
+      ('nomatch (tuple 1 raw-output))
+      (exit-str
+       (let ((code (list_to_integer (string:trim exit-str)))
+             (diag-lines (lists:droplast lines)))
+         (tuple code (lists:join "\n" diag-lines)))))))
+
+(defun run-checker-raw (checker-bin input-file)
+  (let* ((cmd (lists:flatten
+               (io_lib:format "\"~s\" \"~s\" 2>&1; echo \"EXIT:$?\""
+                              (list checker-bin input-file))))
          (raw-output (os:cmd cmd))
          (lines (string:split (string:trim raw-output) "\n" 'all))
          (last-line (lists:last lines)))
