@@ -62,6 +62,27 @@ future milestone.**
 until SF-3 (per-clause static checking) lands — that's the "typed" in the milestone. SF-7 is a
 legitimate deferral with a real home. See [M11-sf3-cleanup-cc-prompt.md](M11-sf3-cleanup-cc-prompt.md).
 
+### CDC Re-Verification — SF-3 (against `cb84009`)
+
+**SF-3a (per-clause BODY checking) ✅ — the headline gap is closed.** `main.rs:305` now loops
+`for clause in &tf.clauses`, builds a per-clause `body_env` from that clause's args, and checks
+`clause.body` against `clause.returns` at `clause.pos`. `sf3_clause2_body_checked`
+(`bad_clause2_body.lfet`) proves it: **clause 2's** body returning `string` against `:returns
+integer` is rejected with the exact diagnostic — and since clause 1 is well-typed, the error can
+only come from checking clause 2. Multi-clause functions are now genuinely statically typed.
+
+**SF-3b (pattern-vs-type compatibility) ❌ still missing — SF-3 not fully closed.** SF-3's
+criterion also requires "each pattern checked against its declared type" (a literal pattern
+incompatible with its type → static error, e.g. `(("" int))`). Grep confirms no such check in the
+clause path. The body is still checked, so the wrong-*return* case is caught; only the
+dead-*pattern* case (a pattern that can't match its declared type) slips silently. This is the
+same "this pattern can't match a value of type X" diagnostic `case/typed` already does (M2/M3),
+applied to clause `:args` patterns — bounded, and a real Goal-2 teaching moment.
+
+**Status:** SF-3 = **body-checking done; pattern-vs-type pending.** Awaiting Duncan's momentum
+call: close SF-3b now (small iter-5 pass) or fold it into M12 (where real `dirs` patterns will
+exercise it). SF-3 stays *not-fully-done* until SF-3b lands either way.
+
 ## Closure
 
 _(Filled in by CC at close: per-row walk, totals, test summary, SHA.)_
