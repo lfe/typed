@@ -1,0 +1,8 @@
+(defmodule norm_seg
+  (export (to-string 1)))
+
+;; Type-dispatch: different types, same return
+(defun/typed to-string
+  ((:args ((s string)))  (:returns string) (:body s))
+  ((:args ((n integer))) (:returns string) (:body (integer_to_list n)))
+  ((:args ((a atom)))    (:returns string) (:body (atom_to_list a))))

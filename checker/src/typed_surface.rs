@@ -15,6 +15,7 @@ pub struct TypedFun {
 #[derive(Debug, Clone)]
 pub struct TypedClause {
     pub args: Vec<(String, String)>,
+    pub patterns: Vec<SExp>,
     pub returns: String,
     pub body: Vec<SExp>,
     pub when_guard: Option<SExp>,
@@ -310,8 +311,13 @@ pub fn extract_typed_fun(form: &SExp) -> Result<TypedFun, CheckError> {
         });
     }
 
+    let patterns: Vec<SExp> = args
+        .iter()
+        .map(|(name, _)| SExp::Symbol(Symbol::new(name.clone(), list.pos)))
+        .collect();
     let clause = TypedClause {
         args: args.clone(),
+        patterns,
         returns: returns.clone(),
         body: body.clone(),
         when_guard: None,
@@ -348,6 +354,7 @@ fn extract_multi_clause_fun(
         };
 
         let mut args = Vec::new();
+        let mut patterns: Vec<SExp> = Vec::new();
         let mut returns = String::new();
         let mut body = Vec::new();
         let mut when_guard = None;
@@ -367,6 +374,7 @@ fn extract_multi_clause_fun(
                                     for pair in &arg_list.elements {
                                         match pair {
                                             SExp::List(p) if p.elements.len() == 2 => {
+                                                let pat_sexp = p.elements[0].clone();
                                                 let pat_name = match &p.elements[0] {
                                                     SExp::Symbol(s) => s.value.clone(),
                                                     other => format_sexp_flat(other),
@@ -378,9 +386,11 @@ fn extract_multi_clause_fun(
                                                     }
                                                     other => format_sexp_flat(other),
                                                 };
+                                                patterns.push(pat_sexp);
                                                 args.push((pat_name, arg_type));
                                             }
                                             SExp::List(p) if p.elements.len() == 3 => {
+                                                let pat_sexp = p.elements[0].clone();
                                                 let pat_name = match &p.elements[0] {
                                                     SExp::Symbol(s) => s.value.clone(),
                                                     other => format_sexp_flat(other),
@@ -396,6 +406,7 @@ fn extract_multi_clause_fun(
                                                         ),
                                                         _ => format_sexp_flat(pair),
                                                     };
+                                                patterns.push(pat_sexp);
                                                 args.push((pat_name, arg_type));
                                             }
                                             _ => {
@@ -445,6 +456,7 @@ fn extract_multi_clause_fun(
 
         clauses.push(TypedClause {
             args,
+            patterns,
             returns,
             body,
             when_guard,

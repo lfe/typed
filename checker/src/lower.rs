@@ -86,13 +86,20 @@ fn lower_multi_clause(tf: &TypedFun, type_env: &TypeEnv) -> SExp {
     let mut ml_clauses = vec![sym("match-lambda")];
 
     for clause in &tf.clauses {
-        let arg_patterns: Vec<SExp> = clause.args.iter().map(|(name, _)| sym(name)).collect();
+        let arg_patterns: Vec<SExp> = clause.patterns.iter().map(strip_positions).collect();
         let body_exprs: Vec<SExp> = clause.body.iter().map(strip_positions).collect();
 
         let mut guard_exprs: Vec<SExp> = clause
             .args
             .iter()
-            .filter_map(|(name, type_str)| guards::guard_for_type(type_str, name, type_env))
+            .zip(clause.patterns.iter())
+            .filter_map(|((name, type_str), pat)| {
+                if matches!(pat, SExp::Symbol(_)) {
+                    guards::guard_for_type(type_str, name, type_env)
+                } else {
+                    None
+                }
+            })
             .collect();
 
         if let Some(when_g) = &clause.when_guard {
