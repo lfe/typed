@@ -22,13 +22,16 @@
    ;; SF-5: Wrong-typed arg rejected
    (sf5_wrong_type_rejected 1)
    ;; SF-4: Heterogeneous-return diagnostic
-   (sf4_hetero_return_rejected 1)))
+   (sf4_hetero_return_rejected 1)
+   ;; SF-3: Per-clause static checking
+   (sf3_clause2_body_checked 1)))
 
 (defun all ()
   '(sf8_ackermann
     sf8_type_dispatch
     sf5_wrong_type_rejected
-    sf4_hetero_return_rejected))
+    sf4_hetero_return_rejected
+    sf3_clause2_body_checked))
 
 (defun suite () `(#(timetrap #(seconds 60))))
 
@@ -94,6 +97,22 @@
          (case expected
            ('string 'ok)
            (other (ct:fail `#(wrong_expected ,other ,err-map)))))))))
+
+;;; ============================================================
+;;; SF-3: Per-clause static checking — clause 2 body type error
+;;; ============================================================
+
+(defun sf3_clause2_body_checked (config)
+  (let* ((checker-bin (proplists:get_value 'checker_bin config))
+         (fixture-dir (proplists:get_value 'fixture_dir config))
+         (fixture (filename:join (list fixture-dir "multi_clause" "bad_clause2_body.lfet")))
+         (`#(,exit-code ,output) (run-checker-raw checker-bin fixture)))
+    (case exit-code
+      (0 (ct:fail '#(expected_nonzero_exit_clause2_not_checked)))
+      (_
+       (case (string:find output "body returns `string`, but contract declares `:returns integer`")
+         ('nomatch (ct:fail `#(wrong_diagnostic ,output)))
+         (_ 'ok))))))
 
 ;;; ============================================================
 ;;; SF-4: Heterogeneous return types → teaching diagnostic

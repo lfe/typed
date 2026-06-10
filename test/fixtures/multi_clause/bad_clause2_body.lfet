@@ -1,0 +1,7 @@
+(defmodule bad_clause2_body
+  (export (f 1)))
+
+;; Clause 1 is well-typed; clause 2 body returns wrong type
+(defun/typed f
+  ((:args ((0 integer))) (:returns integer) (:body 1))
+  ((:args ((n integer))) (:returns integer) (:body "not-an-integer")))

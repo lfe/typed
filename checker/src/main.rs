@@ -301,36 +301,44 @@ fn main() {
                         }
                     }
 
-                    // Type-check the body against the contract
-                    let mut body_env = typecheck::BodyEnv::new();
-                    for (arg_name, arg_type) in &tf.args {
-                        body_env.bind_var(arg_name, typecheck::parse_type(arg_type));
-                    }
-                    for (fn_name, sig) in &all_fun_sigs {
-                        body_env.register_fun(fn_name, sig.clone());
-                    }
-
+                    // Type-check EVERY clause's body against ITS contract
                     let source_text = std::fs::read_to_string(input_file).ok();
-                    let type_errors = typecheck::check_body_with_case_typed(
-                        &tf.body,
-                        &tf.returns,
-                        &body_env,
-                        &env,
-                        &env,
-                        source_name,
-                        tf.pos,
-                    );
-                    if !type_errors.is_empty() {
-                        let mut collector = diagnostic::DiagnosticCollector::new();
-                        for e in &type_errors {
-                            collector.add_check_error(e, source_text.as_deref());
+                    for clause in &tf.clauses {
+                        let mut body_env = typecheck::BodyEnv::new();
+                        for (arg_name, arg_type) in &clause.args {
+                            if arg_name
+                                .chars()
+                                .next()
+                                .is_some_and(|c| c.is_alphabetic() || c == '_')
+                            {
+                                body_env.bind_var(arg_name, typecheck::parse_type(arg_type));
+                            }
                         }
-                        if format_json {
-                            eprint!("{}", collector.render_json());
-                        } else {
-                            eprint!("{}", collector.render_human());
+                        for (fn_name, sig) in &all_fun_sigs {
+                            body_env.register_fun(fn_name, sig.clone());
                         }
-                        had_error = true;
+
+                        let type_errors = typecheck::check_body_with_case_typed(
+                            &clause.body,
+                            &clause.returns,
+                            &body_env,
+                            &env,
+                            &env,
+                            source_name,
+                            clause.pos,
+                        );
+                        if !type_errors.is_empty() {
+                            let mut collector = diagnostic::DiagnosticCollector::new();
+                            for e in &type_errors {
+                                collector.add_check_error(e, source_text.as_deref());
+                            }
+                            if format_json {
+                                eprint!("{}", collector.render_json());
+                            } else {
+                                eprint!("{}", collector.render_human());
+                            }
+                            had_error = true;
+                        }
                     }
 
                     let expanded_body: Vec<sexp::types::SExp> =
