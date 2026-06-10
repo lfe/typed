@@ -8,6 +8,9 @@
 > before drafting. **Companion thread:** the xrepl Rust-core architecture review
 > (`xrepl/xrepl/workbench/2026.06.10-rust-core-architecture-review.md`) — this note and
 > that one were written against each other; §5 records where this note pushed back.
+> **Amended 2026-06-10** after an independent audit of this note: D4's "re-checked by
+> construction" claim was found to conflate two replay semantics — D4 rewritten, the
+> choice surfaced as §6 Q5, fallback added as §8 condition 6.
 > **The named hazard:** both sessions flagged the same enthusiasm pull (a Rust REPL is
 > the most thrilling option). Discipline applied: the boring options were costed first,
 > and the recommendation below cites evidence that could have changed it.
@@ -119,13 +122,34 @@ cleanly reported; the session log survives in the session process; nothing to re
 ephemeral port for a long-lived one (memoized type env) behind the *same* protocol op —
 an implementation detail no client can observe, reversible forever.
 
-**D4 — Redefinition semantics (criterion #6, answered):** the log is the truth.
-Later definitions overwrite earlier ones in replay order; dependents are re-checked
-**on next use** (lazily — they get re-checked by construction, since every check
-replays the current log). No generational shadowing machinery (GHCi needs it because
-it holds compiled state; replay just rereads history). A redefinition that breaks a
-dependent surfaces the first time the dependent is involved in a check again — the
-honest, cheap answer.
+**D4 — Redefinition semantics (criterion #6): the log is the truth — but replay
+defers one named choice.** *(Amended 2026-06-10. The original draft claimed dependents
+are "re-checked by construction, since every check replays the current log." Auditing
+that claim found it conflates two distinct replay semantics — and they differ exactly
+where redefinition bites. Replay does not avoid GHCi's problem; it defers the same
+choice.)* Walk the log `T_old, f, T_new, candidate`, where `f`'s body depends on `T`:
+
+- **D4-a — Order-faithful replay.** Each entry checks against the env *at its point in
+  history*. So `f` re-checks against `T_old` every time, forever; it is never
+  re-validated against `T_new` unless the user redefines it. Sound-as-of-definition,
+  cheap, never fails a historical entry — but the static story carries a stale body
+  validated under a type that no longer exists, and only the runtime guards stand
+  between that and a surprise. (This is the semantics GHCi's generational shadowing
+  implements honestly: old closures keep old types, *visibly*.)
+- **D4-b — Keyed replay.** A redefinition *replaces* the earlier entry at its original
+  log position, so `f` genuinely re-checks against `T_new` on every subsequent check.
+  Dependent breakage now surfaces eagerly — during a check of some *unrelated*
+  candidate — which forces two sub-decisions: what happens to the failed historical
+  entry (recommendation: **evict-and-demote** — "`f` no longer checks under redefined
+  `T`; demoted to `dynamic`" — the same honest membrane move as §6 Q1), and the
+  diagnostic must attribute the failure to the *stale dependent*, never to the
+  innocent candidate (blaming the candidate would violate Goal 2 outright).
+
+*Recommendation: D4-b with evict-and-demote.* It keeps the static env truthful
+(nothing in it was validated against a type that no longer exists), needs no
+generational machinery beyond failure attribution, and tells the membrane story
+consistently with §6 Q1. Either semantics is defensible; the call is Duncan's —
+recorded as §6 Q5, with the fallback path in §8 condition 6.
 
 **D5 — The evaluation handoff is already built.** The checker emits lowered vanilla
 LFE as EETF — designed for the batch driver, equally consumable by the session
@@ -194,6 +218,14 @@ server authoritative, client advisory, one engine.
    it's now active again; a thin rebar3_lfe variant if cheap.*
 4. **Protocol op names/shape** — coordinate with the xrepl protocol's existing
    `lint`/`issues` vocabulary when extending it.
+5. **Replay semantics under redefinition (D4-a vs D4-b — added 2026-06-10).**
+   Order-faithful replay (stale dependents stay valid-as-of-definition; runtime
+   guards backstop; nothing ever fails retroactively) vs keyed replay with
+   evict-and-demote (dependents eagerly re-checked against redefined types; a
+   broken dependent is demoted to `dynamic` with a warning attributed to *it*,
+   not the candidate that triggered the check). *Recommendation: D4-b +
+   evict-and-demote — the same honesty as Q1's demote, and the static env never
+   holds a validation against a type that no longer exists.*
 
 ## 7. Staged recommendation
 
@@ -234,6 +266,11 @@ real LFE.
    semantically from compiled-module behavior in ways that matter for typed code
    (e.g., guard behavior in interpreted match-lambdas), the lowered-eval path needs a
    compatibility audit before S3 ships transcripts as canon.
+6. **Attribution complexity (added 2026-06-10):** if D4-b's stale-dependent failure
+   attribution can't be rendered cleanly in diagnostics — and blaming the innocent
+   candidate is unacceptable (Goal 2) — fall back to D4-a plus an explicit
+   `typed-recheck` command as the manual re-validation affordance, and document the
+   stale-body window honestly.
 
 ## 9. The paragraph for the book chapter (deliverable #4 of the mandate)
 
